@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import './global.css'
 
 import App from './App'
+import { Providers } from './providers'
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 
@@ -14,9 +15,21 @@ if (process.env.NODE_ENV === 'development') {
       return worker.start()
     }) // Run <App /> when Service Worker is ready to intercept requests.
     .then(() => {
-      root.render(<App />)
+      root.render(
+        <React.StrictMode>
+          <Providers>
+            <App />
+          </Providers>
+        </React.StrictMode>,
+      )
     })
   // Never setup MSW mock server in production
 } else if (process.env.NODE_ENV === 'production') {
-  root.render(<App />)
+  root.render(
+    <React.StrictMode>
+      <Providers>
+        <App />
+      </Providers>
+    </React.StrictMode>,
+  )
 }
