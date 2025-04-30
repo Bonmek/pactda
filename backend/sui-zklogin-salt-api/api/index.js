@@ -40,8 +40,8 @@ const BN254_FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364
 
 // Generate a cryptographically secure random salt within the BN254 field
 function generateSalt() {
-  // Generate 32 random bytes (256 bits) for sufficient entropy.
-  const buffer = crypto.randomBytes(32);
+  // Generate 16 random bytes (128 bits) for entropy.
+  const buffer = crypto.randomBytes(16);
   // Convert the random bytes to a BigInt.
   const randomBigInt = BigInt(`0x${buffer.toString('hex')}`);
   // Reduce the BigInt modulo the field modulus.
