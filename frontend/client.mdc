@@ -1,0 +1,124 @@
+---
+description: client side work, ui, frontend, react, vite
+globs: 
+alwaysApply: false
+---
+---
+description: Blockchain Application Design Components
+globs: 
+alwaysApply: true
+---
+### 1. Main Client Library
+- Use Tailwind for style (refer to https://tailwindcss.com/docs/styling-with-utility-classes if necessary)
+- **Always use React Router in *Framework Mode***, which wraps **Data Mode** with a **Vite plugin** to provide the full React Router experience.  
+  Example usage:
+  ```tsx
+  import { index, route } from "@react-router/dev/routes";
+  export default [
+    index("./features/home/pages/HomePage.tsx"),
+    route("wallet", "./features/wallet/pages/WalletPage.tsx"),
+    route("tokens/:tokenId", "./features/tokens/pages/TokenDetailPage.tsx"),
+  ];
+  ```
+
+### 2. Blockchain Integration
+- Support multiple blockchain networks using wallet connectors
+- Implement wallet connection via:taMask
+  - Wnect
+  - Coinbase Wallet
+  - Other popular web3 wallets
+- Store active wallet information and connection status in Zustand store
+- Support network switching with appropriate UI feedback
+
+### 3. Language Translation
+- Always **implement multilingual support**
+- For common translation, store translation files in JSON format at `/app/locales/` folder using language codes:
+  - English → @en.json
+  - Thai → @th.json
+- For features translation, store translation files in `/app/features/{feature-name}/locales/` folder
+- **If other language files exist**, make sure to add translations for them as well
+
+### 4. Icon Usage
+- Use blockchain-specific icons from established libraries:
+  - Cryptocurrency logos from cryptocurrency-icons
+  - General UI icons from Lucide React
+  - **Only download SVGs as a last resort** if the icon cannot be found in any supported library
+
+### 5. User Notifications (Toasts)
+- Use **toast-like components** to essages about:
+  - Transaction status (pending, confirmed, failed)
+  - Wallet connection status
+  - Network changes
+- Always apply **appropriate colors** based on the context:
+  - 🟩 **Green** → Success (transaction confirmed)
+  - 🟦 **Blue** → Info (wallet connected)
+  - 🟨 **Yellow** → Warning (network congestion)
+  - 🟥 **Red** → Error (transaction failed)
+
+### 6. Connect to API
+- **Don't use axios instance directly from library**, use the axios API instance from @index.ts
+- Create dedicated service files for each blockchain and REST resource in:
+  - `/app/services/blockchain/` for chain-specific services
+  - `/app/features/{feature-name}/services/` for feature-specific services
+- Define proper TypeScript interfaces for blockchain data structures
+
+### 7. Client State Management
+- Use Zustand for state management with separate stores for:
+  - Wallet connection state
+  - Network state
+  - Token balances
+  - Transaction history
+- Create stores in the `/app/store` directory or feature-specific stores
+
+### 8. Transaction Handling
+- Implement proper transaction flow:
+  1. Pre-transaction validation
+  2. Transaction signing request
+  3. Transaction submission
+  4. Pending transaction tracking
+  5. Transaction confirmation/failure handling
+- Always show gas estimates before transaction submission
+- Provide transaction history with filtering options
+
+### 9. Token Management
+- Support viewing and managing multiple token types:
+  - Native coins (ETH, BNB, etc.)
+  - ERC-20/BEP-20 tokens
+  - NFTs (ERC-721/ERC-1155)
+- Implement pagination, sorting, and filtering for token lists
+- Ensure proper display of token balances with appropriate decimals
+
+### 10. Feature-Based Structure
+- Follow this structure for blockchain features:
+```
+├── features/
+│   ├── wallet/             # Wallet connection
+│   ├── tokens/             # Token mana  ├── transactions/       # Transaction history
+│   ├── swap/               # Token swap functionality
+│   ├── nft/                # NFT marketplace
+│   ├── staking/            # Staking features
+│   └── ...
+```
+
+### 11. Security Best Practices
+- Never store private keys or seed phrases in state or local storage
+- Implement proper error handling for failed transactions
+- Show warnings for high-risk operations
+- Always verify contract addresses against known trusted sources
+- Display transaction details clearly before signing
+
+### 12. Multi-chain Support
+- Support switching between blockchains:
+  - Ethereum
+  - Binance Smart Chain
+  - Polygon
+  - Other EVM-compatible chains
+- Clearly indicate active network in UI
+- Handle RPC endpoints elegantly with fallbacks
+
+### 13. Responsive Design
+- Ensure all components work properly on:
+  - Desktop browsers
+  - Mobile browsers
+  - Browser extensions (MetaMask)
+- Use Tailwind's responsive classes consistently
