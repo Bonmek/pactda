@@ -11,7 +11,7 @@ import {
 import { jwtDecode } from 'jwt-decode'
 import axios from 'axios'
 import React, { useEffect, useState } from 'react'
-import { SuiClient } from '@mysten/sui/client'
+import { CoinBalance, SuiClient } from '@mysten/sui/client'
 
 // ---- CONFIG ----
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -30,11 +30,21 @@ interface MyJwtPayload {
 
 const PactdaGoogleLogin: React.FC = () => {
   const [nonce, setNonce] = useState<string | null>(null)
+  const [address, setAddress] = useState<string | null>(null)
+  const [balance, setBalance] = useState<CoinBalance | null>(null)
+  const suiClient = new SuiClient({ url: FULLNODE_URL })
+
+  const getSuiBalance = async (address: string) => {
+    const balance = await suiClient.getBalance({
+      owner: address,
+      coinType: '0x2::sui::SUI',
+    })
+    setBalance(balance)
+  }
 
   const prepareLogin = async () => {
     const ephemeralKeypair = new Ed25519Keypair()
     const randomness = generateRandomness()
-    const suiClient = new SuiClient({ url: FULLNODE_URL })
 
     const { epoch } = await suiClient.getLatestSuiSystemState()
     const maxEpoch = Number(epoch) + 2
@@ -55,10 +65,9 @@ const PactdaGoogleLogin: React.FC = () => {
     localStorage.setItem('login-maxEpoch', maxEpoch.toString())
     setNonce(n)
 
-    setTimeout(() => {
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&response_type=id_token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20email&nonce=${n}`
-      window.location.href = authUrl
-    }, 10000)
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&response_type=id_token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=openid%20email&nonce=${n}`
+    window.location.href = authUrl
+
     // Redirect to Google login
   }
 
@@ -143,13 +152,17 @@ const PactdaGoogleLogin: React.FC = () => {
 
         // Step 1. Generate zkLoginUserAddress (useful for sending transaction)
         const zkLoginUserAddress = jwtToAddress(idToken, salt)
-        console.log('✅ zkLogin User Address:', zkLoginUserAddress)
+        console.log('zkLogin User Address:', zkLoginUserAddress)
+
+        setAddress(zkLoginUserAddress)
 
         const coins = await suiClient.getCoins({
           owner: zkLoginUserAddress,
           coinType: '0x2::sui::SUI',
         })
-        console.log('✅ coins:', coins)
+
+        getSuiBalance(zkLoginUserAddress)
+        console.log('coins:', coins)
         if (!coins || coins.data.length === 0) {
           throw new Error('No SUI coins found for gas.')
         }
@@ -188,7 +201,9 @@ const PactdaGoogleLogin: React.FC = () => {
           signature: zkLoginSignature,
         })
 
-        console.log('✅ Transaction Result:', result)
+        getSuiBalance(zkLoginUserAddress)
+
+        console.log('Transaction Result:', result)
       } catch (error) {
         console.error('OAuth Callback Error:', error)
       }
@@ -201,9 +216,9 @@ const PactdaGoogleLogin: React.FC = () => {
 
   return (
     <div>
-      <button onClick={prepareLogin}>
-        Login with Google (Full zkLogin flow)
-      </button>
+      {address && <div>address : {address}</div>}
+      {balance && <div>balance: {balance?.totalBalance}</div>}
+      <button onClick={prepareLogin}>Login with Google</button>
     </div>
   )
 }
