@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { SuiWalletCard, MetaMaskWalletCard } from '../../components/Wallet';
+import PactdaGoogleLogin from '@/components/Wallet/PactdaGoogleLogin';
 
 interface IndexProps {
   selectedWalletType: 'sui' | 'metamask' | null;
@@ -65,7 +66,8 @@ export default function Index({ selectedWalletType, setSelectedWalletType }: Ind
       <div className="flex flex-col md:flex-row justify-center gap-8 mb-12">
         <SuiWalletCard />
         <MetaMaskWalletCard />
+        <PactdaGoogleLogin/>
       </div>
     </div>
-  );
+  )
 }
