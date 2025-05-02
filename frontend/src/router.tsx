@@ -4,6 +4,7 @@ import Layout from './components/Layout/Layout'
 import Index from './pages/Index'
 import Notfound from './pages/Notfound'
 import TokenBridge from './pages/TokenBridge'
+import Callback from './pages/Callback'
 
 interface HomeProps {
   selectedWalletType: 'sui' | 'metamask' | null;
@@ -47,6 +48,12 @@ export const router = createBrowserRouter([
     path: '/token-bridge',
     element: (
       <RouteWrapper component={TokenBridge} />
+    )
+  },
+  {
+    path: '/callback',
+    element: (
+      <RouteWrapper component={Callback} />
     )
   },
   {

@@ -31,16 +31,9 @@ interface MyJwtPayload {
 const PactdaGoogleLogin: React.FC = () => {
   const [nonce, setNonce] = useState<string | null>(null)
   const [address, setAddress] = useState<string | null>(null)
-  const [balance, setBalance] = useState<CoinBalance | null>(null)
   const suiClient = new SuiClient({ url: FULLNODE_URL })
 
-  const getSuiBalance = async (address: string) => {
-    const balance = await suiClient.getBalance({
-      owner: address,
-      coinType: '0x2::sui::SUI',
-    })
-    setBalance(balance)
-  }
+
 
   const prepareLogin = async () => {
     const ephemeralKeypair = new Ed25519Keypair()
@@ -161,7 +154,6 @@ const PactdaGoogleLogin: React.FC = () => {
           coinType: '0x2::sui::SUI',
         })
 
-        getSuiBalance(zkLoginUserAddress)
         console.log('coins:', coins)
         if (!coins || coins.data.length === 0) {
           throw new Error('No SUI coins found for gas.')
@@ -201,7 +193,6 @@ const PactdaGoogleLogin: React.FC = () => {
           signature: zkLoginSignature,
         })
 
-        getSuiBalance(zkLoginUserAddress)
 
         console.log('Transaction Result:', result)
       } catch (error) {
@@ -217,7 +208,6 @@ const PactdaGoogleLogin: React.FC = () => {
   return (
     <div>
       {address && <div>address : {address}</div>}
-      {balance && <div>balance: {balance?.totalBalance}</div>}
       <button onClick={prepareLogin}>Login with Google</button>
     </div>
   )
