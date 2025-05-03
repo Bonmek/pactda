@@ -1,28 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { jwtDecode } from 'jwt-decode'
-import axios from 'axios'
-import {
-  jwtToAddress,
-  getExtendedEphemeralPublicKey,
-  genAddressSeed,
-  getZkLoginSignature,
-} from '@mysten/sui/zklogin'
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
-import { SuiClient, CoinBalance } from '@mysten/sui/client'
-import { Transaction } from '@mysten/sui/transactions'
+import { jwtToAddress } from '@mysten/sui/zklogin'
 import {
   parseIdTokenFromUrl,
   decodeIdToken,
+  setGoogleAddress,
 } from '../../service/GoogleAuthService'
-import {
-  restoreEphemeralKeyAndRandomness,
-  fetchSalt,
-} from '../../service/SuiZkLoginService'
-
-const suiClient = new SuiClient({
-  url: import.meta.env.VITE_SUI_FULLNODE_URL,
-})
+import { fetchSalt } from '../../service/SuiZkLoginService'
 
 const GoogleCallback = () => {
   const [loading, setLoading] = useState(true)
@@ -36,7 +20,7 @@ const GoogleCallback = () => {
 
         if (!idToken) throw new Error('Missing id_token in URL')
 
-        sessionStorage.setItem('jwt-randomness',idToken)
+        sessionStorage.setItem('google-id-token', idToken)
 
         const decodedJwt = decodeIdToken(idToken)
 
@@ -44,10 +28,10 @@ const GoogleCallback = () => {
 
         const zkLoginUserAddress = jwtToAddress(idToken, salt)
 
-        localStorage.setItem('zklogin-address', zkLoginUserAddress)
+        setGoogleAddress(zkLoginUserAddress)
 
         setTimeout(() => {
-          navigate('/') 
+          navigate('/')
         }, 2000)
       } catch (err: any) {
         console.error(err)
@@ -61,9 +45,14 @@ const GoogleCallback = () => {
   }, [navigate])
 
   return (
-    <div>
-      {loading && <p> Logging you in via Google...</p>}
-      {error && <p style={{ color: 'red' }}>❌ {error}</p>}
+    <div className="flex flex-col items-center justify-center min-h-screen text-center">
+      {loading && (
+        <>
+          <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+          <p className="text-lg">Logging you in via Google...</p>
+        </>
+      )}
+      {error && <p className="text-red-500 text-lg">❌ {error}</p>}
     </div>
   )
 }

@@ -10,6 +10,8 @@ import {
   import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
   import axios from 'axios'
   
+  const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL
+
   export const createEphemeralKey = (): Ed25519Keypair => {
     return new Ed25519Keypair()
   }
@@ -109,7 +111,7 @@ import {
   }
   
 export const fetchSalt = async (iss: string, sub: string): Promise<string> => {
-    const response = await fetch('https://sui-zklogin-salt-api.vercel.app/api/salt', {
+    const response = await fetch(`${BACKEND_API_URL}/salt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ iss, sub }),
