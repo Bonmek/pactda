@@ -1,7 +1,6 @@
 // src/services/suiZkLogin.ts
 import {
     generateNonce,
-    generateRandomness,
     jwtToAddress,
     genAddressSeed,
     getExtendedEphemeralPublicKey,
@@ -12,39 +11,105 @@ import {
   
   const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL
 
-  export const createEphemeralKey = (): Ed25519Keypair => {
+  // --- Utility to create a new ephemeral Ed25519 keypair ---
+export const createEphemeralKey = (): Ed25519Keypair => {
     return new Ed25519Keypair()
   }
   
+  // --- SessionStorage Functions ---
+  
+  // Store the ephemeral private key in sessionStorage (as base64 string)
+  const setEphemeralPrivateKey = (key: Ed25519Keypair) => {
+    sessionStorage.setItem('ephemeral-private-key', key.getSecretKey())
+  }
+  
+  // Retrieve the ephemeral private key from sessionStorage and decode it
+  const getEphemeralPrivateKey = (): Uint8Array => {
+    const value = sessionStorage.getItem('ephemeral-private-key')
+    if (!value) throw new Error('Missing ephemeral private key')
+    return Uint8Array.from(Buffer.from(value, 'base64'))
+  }
+  
+  // Store JWT randomness in sessionStorage
+  const setJwtRandomness = (randomness: string) => {
+    sessionStorage.setItem('jwt-randomness', randomness)
+  }
+  
+  // Retrieve JWT randomness from sessionStorage
+  const getJwtRandomness = (): string => {
+    const value = sessionStorage.getItem('jwt-randomness')
+    if (!value) throw new Error('Missing jwt randomness')
+    return value
+  }
+  
+  // --- LocalStorage Functions ---
+  
+  // Store the login nonce in localStorage
+  const setLoginNonce = (nonce: string) => {
+    localStorage.setItem('login-nonce', nonce)
+  }
+  
+  // Retrieve the login nonce from localStorage
+  const getLoginNonce = (): string => {
+    const value = localStorage.getItem('login-nonce')
+    if (!value) throw new Error('Missing login nonce')
+    return value
+  }
+  
+  // Store the maxEpoch value in localStorage
+  const setLoginMaxEpoch = (epoch: number) => {
+    localStorage.setItem('login-maxEpoch', epoch.toString())
+  }
+  
+  // Retrieve the maxEpoch value from localStorage
+  const getLoginMaxEpoch = (): number => {
+    const value = localStorage.getItem('login-maxEpoch')
+    if (!value) throw new Error('Missing login maxEpoch')
+    return Number(value)
+  }
+  
+  // Generate a nonce using ephemeral key, maxEpoch, and randomness
+  // and persist all required data to session/local storage
   export const generateNonceAndStore = (
     ephemeralKey: Ed25519Keypair,
     maxEpoch: number,
     randomness: string
   ): string => {
     const nonce = generateNonce(ephemeralKey.getPublicKey(), maxEpoch, randomness)
-    sessionStorage.setItem('ephemeral-private-key', ephemeralKey.getSecretKey())
-    sessionStorage.setItem('jwt-randomness', randomness)
-    localStorage.setItem('login-nonce', nonce)
-    localStorage.setItem('login-maxEpoch', maxEpoch.toString())
+  
+    setEphemeralPrivateKey(ephemeralKey)
+    setJwtRandomness(randomness)
+    setLoginNonce(nonce)
+    setLoginMaxEpoch(maxEpoch)
+  
     return nonce
   }
   
+  // Restore all previously stored zkLogin session data
   export const restoreEphemeralKeyAndRandomness = () => {
-    const sk = sessionStorage.getItem('ephemeral-private-key')
-    const randStr = sessionStorage.getItem('jwt-randomness')
-    const maxEpoch = localStorage.getItem('login-maxEpoch')
-    const nonce = localStorage.getItem('login-nonce')
-  
-    if (!sk || !randStr || !maxEpoch || !nonce) throw new Error('Missing session data')
+    const sk = getEphemeralPrivateKey()
+    const randStr = getJwtRandomness()
+    const maxEpoch = getLoginMaxEpoch()
+    const nonce = getLoginNonce()
   
     return {
       ephemeralKeypair: Ed25519Keypair.fromSecretKey(sk),
       randomness: randStr,
-      maxEpoch: Number(maxEpoch),
+      maxEpoch,
       nonce,
     }
   }
   
+  // Clear all zkLogin-related data from local and session storage
+  export const clearZkLoginStorage = () => {
+    sessionStorage.removeItem('ephemeral-private-key')
+    sessionStorage.removeItem('jwt-randomness')
+    sessionStorage.removeItem('zklogin-address')
+    localStorage.removeItem('login-nonce')
+    localStorage.removeItem('login-maxEpoch')
+  }
+  
+  // Call Mysten Labs' zkLogin prover to request proof for the JWT token
   export const requestZkLoginProof = async (
     idToken: string,
     ephemeralKey: Ed25519Keypair,
@@ -74,10 +139,12 @@ import {
     return res.data
   }
   
+  // Derive zkLogin Sui address from the JWT and salt
   export const getZkAddress = (idToken: string, salt: string): string => {
     return jwtToAddress(idToken, salt)
   }
   
+  // Generate the zkLogin signature to be used for authenticating transactions on Sui
   export const createZkLoginSignature = (
     decodedJwt: JwtPayload,
     salt: string,
@@ -99,8 +166,8 @@ import {
       inputs: {
         proofPoints,
         issBase64Details: {
-            value : issBase64Value,
-            indexMod4: issBase64IndexMod4
+          value: issBase64Value,
+          indexMod4: issBase64IndexMod4
         },
         headerBase64,
         addressSeed,
@@ -110,7 +177,8 @@ import {
     })
   }
   
-export const fetchSalt = async (iss: string, sub: string): Promise<string> => {
+  // Fetch the salt value (used in address derivation) from your backend using issuer and subject
+  export const fetchSalt = async (iss: string, sub: string): Promise<string> => {
     const response = await fetch(`${BACKEND_API_URL}/salt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

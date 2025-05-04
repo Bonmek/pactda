@@ -5,6 +5,7 @@ import {
   useDisconnectWallet,
   useConnectWallet,
   useWallets,
+  useSuiClient,
 } from '@mysten/dapp-kit'
 import { useAccount, useDisconnect, useConnect } from 'wagmi'
 import {
@@ -24,6 +25,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const suiClient = useSuiClient()
 
   // Get wallet account information based on selected wallet type
   const suiAccount = useCurrentAccount()
@@ -96,7 +98,7 @@ const Header: React.FC<HeaderProps> = ({
     try {
       setWalletDropdownOpen(false)
       setSelectedWalletType('google')
-      await loginWithGoogle()
+      await loginWithGoogle(suiClient)
     } catch (error) {
       console.error('zkLogin failed:', error)
       setSelectedWalletType(null)

@@ -29,15 +29,12 @@ const GoogleCallback = () => {
         const zkLoginUserAddress = jwtToAddress(idToken, salt)
 
         setGoogleAddress(zkLoginUserAddress)
-
-        setTimeout(() => {
-          navigate('/')
-        }, 2000)
       } catch (err: any) {
         console.error(err)
         setError(err.message)
       } finally {
         setLoading(false)
+        navigate('/')
       }
     }
 

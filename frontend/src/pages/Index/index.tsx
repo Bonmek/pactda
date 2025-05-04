@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { SuiWalletCard, MetaMaskWalletCard } from '../../components/Wallet'
-import ZkloginWalletCard from '@/components/Wallet/ZkloginWalletCard'
 
 interface IndexProps {
   selectedWalletType: 'sui' | 'metamask' | null
@@ -94,7 +93,6 @@ export default function Index({
       <div className="flex flex-col md:flex-row justify-center gap-8 mb-12">
         <SuiWalletCard />
         <MetaMaskWalletCard />
-        {/* <ZkloginWalletCard/> */}
       </div>
     </div>
   )
