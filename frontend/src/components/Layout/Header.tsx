@@ -5,18 +5,15 @@ import {
   useDisconnectWallet,
   useConnectWallet,
   useWallets,
-  useSuiClient,
 } from '@mysten/dapp-kit'
 import { useAccount, useDisconnect, useConnect } from 'wagmi'
-import {
-  getGoogleAddress,
-  loginWithGoogle,
-  logoutGoogle,
-} from '@/service/GoogleAuthService'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
-  selectedWalletType: 'sui' | 'metamask' | 'google' | null
-  setSelectedWalletType: (type: 'sui' | 'metamask' | 'google' | null) => void
+  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
+  setSelectedWalletType: (
+    type: 'sui' | 'metamask' | 'google' | 'facebook' | null,
+  ) => void
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -25,11 +22,13 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const suiClient = useSuiClient()
+  const [isLoading, setIsLoading] = useState(false)
+
+  // ใช้ useAuth hook จาก context
+  const { login, logout, zkloginAddress } = useAuth()
 
   // Get wallet account information based on selected wallet type
   const suiAccount = useCurrentAccount()
-  const googleAddress = getGoogleAddress()
   const { address: ethAddress, isConnected: isEthConnected } = useAccount()
   const { disconnect: disconnectEth } = useDisconnect()
   const { mutate: disconnectSui } = useDisconnectWallet()
@@ -44,7 +43,8 @@ const Header: React.FC<HeaderProps> = ({
   const isWalletConnected =
     (selectedWalletType === 'sui' && suiAccount) ||
     (selectedWalletType === 'metamask' && isEthConnected) ||
-    (selectedWalletType === 'google' && googleAddress)
+    ((selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
+      zkloginAddress)
 
   // Handle MetaMask connection
   const handleConnectMetaMask = async () => {
@@ -94,13 +94,26 @@ const Header: React.FC<HeaderProps> = ({
     }
   }
 
+  // ใช้ context สำหรับการเข้าสู่ระบบ Google
   const handleConnectGoogle = async () => {
     try {
       setWalletDropdownOpen(false)
       setSelectedWalletType('google')
-      await loginWithGoogle(suiClient)
+      await login({ authType: 'google' }) // ใช้ context login
     } catch (error) {
-      console.error('zkLogin failed:', error)
+      console.error('Google login failed:', error)
+      setSelectedWalletType(null)
+    }
+  }
+
+  // ใช้ context สำหรับการเข้าสู่ระบบ Facebook
+  const handleConnectFacebook = async () => {
+    try {
+      setWalletDropdownOpen(false)
+      setSelectedWalletType('facebook')
+      await login({ authType: 'facebook' }) // ใช้ context login
+    } catch (error) {
+      console.error('Facebook login failed:', error)
       setSelectedWalletType(null)
     }
   }
@@ -111,8 +124,11 @@ const Header: React.FC<HeaderProps> = ({
       return suiAccount.address
     } else if (selectedWalletType === 'metamask' && ethAddress) {
       return ethAddress
-    } else if (selectedWalletType === 'google' && googleAddress) {
-      return googleAddress
+    } else if (
+      (selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
+      zkloginAddress
+    ) {
+      return zkloginAddress
     }
     return null
   }
@@ -130,8 +146,11 @@ const Header: React.FC<HeaderProps> = ({
     } else if (selectedWalletType === 'sui') {
       // Properly disconnect the Sui wallet
       disconnectSui()
-    } else if (selectedWalletType === 'google') {
-      logoutGoogle()
+    } else if (
+      selectedWalletType === 'google' ||
+      selectedWalletType === 'facebook'
+    ) {
+      logout() // ใช้ context logout
     }
 
     // Clear selected wallet type
@@ -152,6 +171,20 @@ const Header: React.FC<HeaderProps> = ({
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Set loading to true when the component mounts (page refresh)
+    setIsLoading(true)
+
+    // You can use a timeout here or check if accounts are being loaded
+    const timer = setTimeout(() => {
+      setIsLoading(false) // Stop loading after 1 second (or when you have the actual data)
+    }, 1000)
+
+    return () => {
+      clearTimeout(timer)
     }
   }, [])
 
@@ -193,10 +226,13 @@ const Header: React.FC<HeaderProps> = ({
         {/* Wallet Selector in header */}
         <div className="relative" ref={dropdownRef}>
           <button
+            disabled={isLoading}
             onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
-            className={`${isWalletConnected ? 'bg-gray-800 border border-gray-600' : 'bg-blue-700 hover:bg-blue-800'} text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2`}
+            className={`${isWalletConnected || isLoading ? 'bg-gray-800 border border-gray-600' : 'bg-blue-700 hover:bg-blue-800'} text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2`}
           >
-            {isWalletConnected ? (
+            {isLoading ? (
+              <span>Loading...</span>
+            ) : isWalletConnected ? (
               <>
                 <span
                   className={
@@ -211,7 +247,7 @@ const Header: React.FC<HeaderProps> = ({
                     ? '⚡ Sui: '
                     : selectedWalletType === 'metamask'
                       ? '🦊 MetaMask: '
-                      : '🔐 Google: '}
+                      : '🔐 Zklogin: '}
                 </span>
                 <span className="font-mono">
                   {truncateAddress(getConnectedAddress() || '')}
@@ -360,6 +396,27 @@ const Header: React.FC<HeaderProps> = ({
                       />
                     </svg>
                     <span>Google</span>
+                  </button>
+                  <button
+                    onClick={handleConnectFacebook}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 32 32"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        fill="#1877F2"
+                        d="M32 16a16 16 0 1 0-18.5 15.8V20.7h-4v-4.7h4v-3.6c0-4 2.4-6.2 6-6.2 1.7 0 3.4.3 3.4.3v3.8H21c-2 0-2.6 1.2-2.6 2.5v3.2h4.4l-.7 4.7h-3.7v11.1A16 16 0 0 0 32 16z"
+                      />
+                      <path
+                        fill="#FFF"
+                        d="M22.1 20.7l.7-4.7h-4.4v-3.2c0-1.3.6-2.5 2.6-2.5h1.9V6.5s-1.6-.3-3.4-.3c-3.6 0-6 2.2-6 6.2v3.6h-4v4.7h4v11.1a16.1 16.1 0 0 0 5 0V20.7h3.6z"
+                      />
+                    </svg>
+
+                    <span>Facebook</span>
                   </button>
                 </div>
               )}
