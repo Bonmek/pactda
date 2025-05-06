@@ -1,14 +1,10 @@
 import { jwtDecode } from 'jwt-decode'
-import {
-  clearZkLoginStorage,
-  createEphemeralKey,
-  generateNonceAndStore,
-} from './SuiZkLoginService'
+import { createEphemeralKey, generateNonceAndStore } from './SuiZkLoginService'
 import { generateRandomness } from '@mysten/sui/zklogin'
 import { SuiClient } from '@mysten/sui/client'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-const REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 
 /**
  * Start the Google login flow using zkLogin:
@@ -28,28 +24,6 @@ export const loginWithGoogle = async (suiClient: SuiClient) => {
 
   const authUrl = generateGoogleLoginUrl(nonce, CLIENT_ID, REDIRECT_URI)
   window.location.href = authUrl
-}
-
-/**
- * Clears sessionStorage and zkLogin-related data for logout
- */
-export const logoutGoogle = () => {
-  sessionStorage.removeItem('google-id-token')
-  clearZkLoginStorage()
-}
-
-/**
- * Store the zkLogin-derived Sui address from Google ID token
- */
-export const setGoogleAddress = (zkLoginUserAddress: string) => {
-  sessionStorage.setItem('zklogin-address', zkLoginUserAddress)
-}
-
-/**
- * Retrieve the zkLogin Sui address stored in sessionStorage
- */
-export const getGoogleAddress = (): string | null => {
-  return sessionStorage.getItem('zklogin-address')
 }
 
 /**

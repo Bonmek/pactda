@@ -4,9 +4,8 @@ import { jwtToAddress } from '@mysten/sui/zklogin'
 import {
   parseIdTokenFromUrl,
   decodeIdToken,
-  setGoogleAddress,
 } from '../../service/GoogleAuthService'
-import { fetchSalt } from '../../service/SuiZkLoginService'
+import { fetchSalt, setZkloginAddress } from '../../service/SuiZkLoginService'
 
 const GoogleCallback = () => {
   const [loading, setLoading] = useState(true)
@@ -28,7 +27,7 @@ const GoogleCallback = () => {
 
         const zkLoginUserAddress = jwtToAddress(idToken, salt)
 
-        setGoogleAddress(zkLoginUserAddress)
+        setZkloginAddress(zkLoginUserAddress)
       } catch (err: any) {
         console.error(err)
         setError(err.message)
@@ -46,7 +45,7 @@ const GoogleCallback = () => {
       {loading && (
         <>
           <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-          <p className="text-lg">Logging you in via Google...</p>
+          <p className="text-lg">Logging you in via Zklogin...</p>
         </>
       )}
       {error && <p className="text-red-500 text-lg">❌ {error}</p>}
