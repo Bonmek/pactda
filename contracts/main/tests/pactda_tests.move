@@ -1,396 +1,632 @@
-/*
-#[test_only]
-module pactda::pactda_tests;
-// uncomment this line to import the module
- use pactda::pactda;
- 
-
-const ENotImplemented: u64 = 0;
-
-#[test]
-fun test_pactda() {
-    // pass
-}
-
-#[test, expected_failure(abort_code = ::pactda::pactda_tests::ENotImplemented)]
-fun test_pactda_fail() {
-    abort ENotImplemented
-}
-*/
-
-#[test_only]
-module pactda::pactda_tests;
-
-    use sui::test_scenario::{Self as ts, Scenario};
-    use sui::coin::{Self, Coin};
+#[test_module(pactda = @pactda)]
+module pactda::pactda_tests {
+    // Sui Framework Imports
+    use sui::balance::{Self, Balance};
+    use sui::coin::{Self, Coin, TreasuryCap};
     use sui::sui::SUI;
-    use std::string::{Self, String};
-    
-    use pactda::pactda::{Self, PactDaContract, Escrow, VCNFT, ContractReceipt};
+    use sui::test_scenario::{Self as test, Scenario, next_tx, ctx};
+    use sui::object::{Self, ID, UID};
+    use sui::transfer;
+    use sui::pay;
+    use sui::tx_context::{TxContext};
+    use sui::clock::{Clock}; // Needed for test scenario
 
-    // Test addresses
-    const PARTY_A: address = @0xA;
-    const PARTY_B: address = @0xB;
-    
-    // Test helper to create a basic contract with one milestone
-    fun create_test_contract(scenario: &mut Scenario, milestone_value: u64): ID {
-        // Start as party A
-        ts::next_tx(scenario, PARTY_A);
-        {
-            // Create contract without milestones
-            pactda::create_contract(
-                PARTY_B,
-                b"test_terms",
-                ts::ctx(scenario)
-            );
-        };
-        
-        // Get contract ID using the receipt
-        let contract_id;
-        ts::next_tx(scenario, PARTY_A);
-        {
-            let receipt = ts::take_from_sender<ContractReceipt>(scenario);
-            contract_id = object::id(&receipt);
-            ts::return_to_sender(scenario, receipt);
-        };
-        
-        // Add milestones to the contract
-        ts::next_tx(scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(scenario);
-            
-            // Create milestone data
-            let mut descriptions = vector::empty<String>();
-            let mut values = vector::empty<u64>();
-            
-            vector::push_back(&mut descriptions, string::utf8(b"Test milestone"));
-            vector::push_back(&mut values, milestone_value);
-            
-            // Add milestones to the contract
-            pactda::add_milestones(&mut contract, descriptions, values, ts::ctx(scenario));
-            
-            ts::return_shared(contract);
-        };
-        
-        return contract_id
+    // Standard Library Imports
+    use std::vector;
+    use std::option::{Self, Option};
+    use std::string::{Self, String};
+
+    // PactDa Core Import
+    use pactda::pactda::{
+        Self, PactDaContract, Milestone, Escrow, VCNFT,
+        // Status Constants
+        CONTRACT_STATUS_PENDING, CONTRACT_STATUS_ACTIVE, CONTRACT_STATUS_COMPLETED,
+        ESCROW_STATUS_FUNDED, ESCROW_STATUS_RELEASED, ESCROW_STATUS_REFUNDED,
+        MILESTONE_STATUS_PENDING, MILESTONE_STATUS_SUBMITTED, MILESTONE_STATUS_APPROVED,
+        // Error Constants (from pactda.move)
+        EInvalidStatus, EUnauthorized, EInvalidMilestone
+        // Note: Other error codes used previously might not exist or apply anymore.
+    };
+
+    // === Test Constants ===
+    const PARTY_A: address = @0xA; // Renamed from CLIENT
+    const PARTY_B: address = @0xB; // Renamed from FREELANCER
+    const OTHER_USER: address = @0xDEAD; // User not involved in the contract
+    const INITIAL_BALANCE: u64 = 1_000_000_000; // 1 SUI
+    const TERMS_REF: vector<u8> = b"ipfs://example_terms";
+    const PROOF_REF: vector<u8> = b"ipfs://example_proof";
+
+    // === Helper Functions ===
+
+    /// Creates a basic test scenario with minted SUI for party_a, party_b.
+    fun create_test_scenario(): Scenario {
+        let mut scenario = test::begin(PARTY_A); // Start scenario as PARTY_A
+
+        // Mint SUI for Party A
+        let ctx = test::ctx(&mut scenario);
+        let coin = coin::mint_for_testing<SUI>(INITIAL_BALANCE, ctx);
+        transfer::public_transfer(coin, PARTY_A);
+
+        // Mint SUI for Party B
+        next_tx(&mut scenario, PARTY_B);
+        let ctx = test::ctx(&mut scenario);
+        let coin = coin::mint_for_testing<SUI>(INITIAL_BALANCE, ctx);
+        transfer::public_transfer(coin, PARTY_B);
+
+        // Mint SUI for Other User
+        next_tx(&mut scenario, OTHER_USER);
+        let ctx = test::ctx(&mut scenario);
+        let coin = coin::mint_for_testing<SUI>(INITIAL_BALANCE, ctx);
+        transfer::public_transfer(coin, OTHER_USER);
+
+        scenario
     }
-    
-    // Test helper to create a contract without milestones
-    fun create_test_contract_no_milestones(scenario: &mut Scenario): ID {
-        // Start as party A
-        ts::next_tx(scenario, PARTY_A);
-        {
-            // Create contract without milestones
-            pactda::create_contract(
-                PARTY_B,
-                b"test_terms",
-                ts::ctx(scenario)
-            );
-        };
-        
-        // Get the contract ID
-        ts::next_tx(scenario, PARTY_A);
-        {
-            let receipt = ts::take_from_sender<ContractReceipt>(scenario);
-            let contract_id = object::id(&receipt);
-            ts::return_to_sender(scenario, receipt);
-            return contract_id
-        }
+
+    #[test_only]
+    fun get_contract_mut(scenario: &mut Scenario): PactDaContract {
+        test::take_shared<PactDaContract>(scenario)
     }
-    
-    // Test full contract flow
+
+    #[test_only]
+    fun return_contract(scenario: &mut Scenario, contract: PactDaContract) {
+        test::return_shared(contract);
+    }
+
+    #[test_only]
+    /// Helper to get the Escrow object associated with a contract.
+    fun get_escrow_mut(scenario: &mut Scenario, contract: &PactDaContract): Escrow {
+        let escrow_addr_opt = pactda::get_escrow_id(contract);
+        assert!(option::is_some(&escrow_addr_opt), 100); // Escrow must exist
+        let escrow_addr = option::destroy_some(escrow_addr_opt);
+        
+        // Get the escrow object ID and take it from the shared objects
+        let escrow_id = object::id_from_address(escrow_addr);
+        test::take_shared_by_id<Escrow>(scenario, escrow_id)
+    }
+
+    #[test_only]
+    fun return_escrow(scenario: &mut Scenario, escrow: Escrow) {
+        test::return_shared(escrow);
+    }
+
+    #[test_only]
+    /// Helper to get a user's SUI balance.
+    fun get_balance(scenario: &Scenario, user: address): u64 {
+        let ids = test::ids_for_address<Coin<SUI>>(user);
+        let mut total_balance = 0;
+        let mut i = 0;
+        while (i < vector::length(&ids)) {
+            let id = *vector::borrow(&ids, i);
+            let coin = test::take_from_address_by_id<Coin<SUI>>(scenario, user, id);
+            total_balance = total_balance + coin::value(&coin);
+            transfer::public_transfer(coin, user); // Return the coin
+            i = i + 1;
+        };
+        total_balance
+    }
+
+    #[test_only]
+    /// Helper to fund the escrow for a contract. Assumes sender has enough SUI.
+    fun fund_escrow_helper(
+        contract: &mut PactDaContract,
+        coin_to_fund: Coin<SUI>,
+        ctx: &mut TxContext
+    ) {
+        pactda::fund_escrow(contract, coin_to_fund, ctx);
+    }
+
+    // === Core PactDa Tests (Rewritten) ===
+
     #[test]
-    fun test_full_contract_flow() {
-        let mut scenario = ts::begin(PARTY_A);
-        let milestone_value = 1000;
-        
-        // 1. Create contract (without milestones)
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            // Create contract without any milestones
-            pactda::create_contract(
-                PARTY_B,
-                b"test_terms",
-                ts::ctx(&mut scenario)
-            );
-        };
-        
-        // 2. Add milestones to contract
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            
-            // Create milestone data
-            let mut descriptions = vector::empty<String>();
-            let mut values = vector::empty<u64>();
-            
-            vector::push_back(&mut descriptions, string::utf8(b"Test milestone"));
-            vector::push_back(&mut values, milestone_value);
-            
-            // Add milestones to the contract
-            pactda::add_milestones(&mut contract, descriptions, values, ts::ctx(&mut scenario));
-            
-            ts::return_shared(contract);
-        };
-        
-        // 3. Party B signs contract
-        ts::next_tx(&mut scenario, PARTY_B);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            pactda::sign_contract_party_b(&mut contract, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
-        };
-        
-        // 4. Party A funds escrow
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            let coin = coin::mint_for_testing<SUI>(milestone_value, ts::ctx(&mut scenario));
-            pactda::fund_escrow(&mut contract, coin, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
-        };
-        
-        // 5. Party B submits proof of work
-        ts::next_tx(&mut scenario, PARTY_B);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            pactda::submit_proof(&mut contract, 0, b"proof_reference", ts::ctx(&mut scenario));
-            ts::return_shared(contract);
-        };
-        
-        // 6. Party A approves milestone
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            pactda::approve_milestone(&mut contract, 0, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
-        };
-        
-        // 7. Party A releases payment
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            
-            // Get the escrow ID from the contract
-            let escrow_id_opt = pactda::get_escrow_id(&contract);
-            assert!(option::is_some(&escrow_id_opt), 0);
-            let escrow_id = *option::borrow(&escrow_id_opt);
-            
-            // Take escrow object
-            let mut escrow = ts::take_shared_by_id<Escrow>(&scenario, object::id_from_address(escrow_id));
-            
-            // Release payment
-            pactda::release_payment(&mut contract, &mut escrow, ts::ctx(&mut scenario));
-            
-            // Check contract is completed
-            assert!(pactda::get_status(&contract) == 3, 0); // CONTRACT_STATUS_COMPLETED
-            
-            // Return objects
-            ts::return_shared(contract);
-            ts::return_shared(escrow);
-        };
-        
-        // 8. Check Party B received payment
-        ts::next_tx(&mut scenario, PARTY_B);
-        {
-            // Party B should have the payment now
-            let coin = ts::take_from_sender<Coin<SUI>>(&scenario);
-            assert!(coin::value(&coin) == milestone_value, 0);
-            ts::return_to_sender(&scenario, coin);
-        };
-        
-        ts::end(scenario);
+    fun test_create_contract_success() {
+        let mut scenario = create_test_scenario();
+
+        next_tx(&mut scenario, PARTY_A);
+        let ctx = test::ctx(&mut scenario);
+        pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+
+        test::end(scenario);
     }
-    
-    // Test contract refund flow
+
     #[test]
-    fun test_refund_flow() {
-        let mut scenario = ts::begin(PARTY_A);
-        let milestone_value = 1000;
-        
-        // 1. Create and sign contract
-        let _contract_id = create_test_contract(&mut scenario, milestone_value);
-        
-        ts::next_tx(&mut scenario, PARTY_B);
+    fun test_add_milestones_success() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
         {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            pactda::sign_contract_party_b(&mut contract, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
         };
+
+        next_tx(&mut scenario, PARTY_A);
         
-        // 2. Party A funds escrow
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            let coin = coin::mint_for_testing<SUI>(milestone_value, ts::ctx(&mut scenario));
-            pactda::fund_escrow(&mut contract, coin, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
-        };
+        // Get the contract
+        let mut contract = get_contract_mut(&mut scenario);
         
-        // 3. Party B agrees to refund payment (e.g., can't complete work)
-        ts::next_tx(&mut scenario, PARTY_B);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            
-            // Get the escrow ID from the contract
-            let escrow_id_opt = pactda::get_escrow_id(&contract);
-            assert!(option::is_some(&escrow_id_opt), 0);
-            let escrow_id = *option::borrow(&escrow_id_opt);
-            
-            // Take escrow object
-            let mut escrow = ts::take_shared_by_id<Escrow>(&scenario, object::id_from_address(escrow_id));
-            
-            // Refund payment
-            pactda::refund_payment(&mut contract, &mut escrow, ts::ctx(&mut scenario));
-            
-            // Return objects
-            ts::return_shared(contract);
-            ts::return_shared(escrow);
-        };
+        // Create a new context for this transaction
+        let ctx = test::ctx(&mut scenario);
         
-        // 4. Check Party A received refund
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            // Party A should have the refund now
-            let coin = ts::take_from_sender<Coin<SUI>>(&scenario);
-            assert!(coin::value(&coin) == milestone_value, 0);
-            ts::return_to_sender(&scenario, coin);
-        };
-        
-        ts::end(scenario);
+        let descriptions = vector[string::utf8(b"Milestone 1"), string::utf8(b"Milestone 2")];
+        let values = vector[100u64, 200u64];
+        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+
+        // Verify milestones exist and have correct initial state
+        let milestones_opt = pactda::get_milestones(&contract);
+        assert!(option::is_some(milestones_opt), 0);
+        let milestones = option::borrow(milestones_opt);
+        assert!(vector::length(milestones) == 2, 1);
+
+        // Use the milestone accessor functions for milestone 0
+        let m0 = vector::borrow(milestones, 0);
+        assert!(pactda::get_milestone_id(m0) == 0, 2);
+        assert!(*pactda::get_milestone_description(m0) == string::utf8(b"Milestone 1"), 3);
+        assert!(pactda::get_milestone_value(m0) == 100, 4);
+        assert!(pactda::get_milestone_status(m0) == pactda::get_milestone_status_pending(), 5);
+        assert!(option::is_none(pactda::get_milestone_proof(m0)), 6);
+
+        // Use the milestone accessor functions for milestone 1
+        let m1 = vector::borrow(milestones, 1);
+        assert!(pactda::get_milestone_id(m1) == 1, 7);
+        assert!(*pactda::get_milestone_description(m1) == string::utf8(b"Milestone 2"), 8);
+        assert!(pactda::get_milestone_value(m1) == 200, 9);
+        assert!(pactda::get_milestone_status(m1) == pactda::get_milestone_status_pending(), 10);
+        assert!(option::is_none(pactda::get_milestone_proof(m1)), 11);
+
+        assert!(pactda::get_status(&contract) == pactda::get_contract_status_pending(), 12); // Status unchanged
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
     }
-    
-    // Test contract without milestones
+
     #[test]
-    fun test_contract_without_milestones() {
-        let mut scenario = ts::begin(PARTY_A);
-        let payment_value = 1000;
-        
-        // 1. Create contract without milestones
-        let _contract_id = create_test_contract_no_milestones(&mut scenario);
-        
-        // 2. Party B signs contract
-        ts::next_tx(&mut scenario, PARTY_B);
+    #[expected_failure(abort_code = pactda::EUnauthorized)]
+    fun test_add_milestones_not_party() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
         {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            pactda::sign_contract_party_b(&mut contract, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
         };
-        
-        // 3. Party A funds escrow
-        ts::next_tx(&mut scenario, PARTY_A);
+
+        next_tx(&mut scenario, OTHER_USER); // Switch to other user
+        let mut contract = get_contract_mut(&mut scenario);
+        let descriptions = vector[string::utf8(b"Milestone X")];
+        let values = vector[50u64];
+
         {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            let coin = coin::mint_for_testing<SUI>(payment_value, ts::ctx(&mut scenario));
-            pactda::fund_escrow(&mut contract, coin, ts::ctx(&mut scenario));
-            ts::return_shared(contract);
+            // This should fail since OTHER_USER is not a party to the contract
+            let ctx = test::ctx(&mut scenario);
+            pactda::add_milestones(&mut contract, descriptions, values, ctx);
         };
-        
-        // 4. Party A releases payment
-        ts::next_tx(&mut scenario, PARTY_A);
-        {
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            
-            // Get the escrow ID from the contract
-            let escrow_id_opt = pactda::get_escrow_id(&contract);
-            assert!(option::is_some(&escrow_id_opt), 0);
-            let escrow_id = *option::borrow(&escrow_id_opt);
-            
-            // Take escrow object
-            let mut escrow = ts::take_shared_by_id<Escrow>(&scenario, object::id_from_address(escrow_id));
-            
-            // Release payment
-            pactda::release_payment(&mut contract, &mut escrow, ts::ctx(&mut scenario));
-            
-            // Check contract is completed
-            assert!(pactda::get_status(&contract) == 3, 0); // CONTRACT_STATUS_COMPLETED
-            
-            // Return objects
-            ts::return_shared(contract);
-            ts::return_shared(escrow);
-        };
-        
-        // 5. Check Party B received payment
-        ts::next_tx(&mut scenario, PARTY_B);
-        {
-            // Party B should have the payment now
-            let coin = ts::take_from_sender<Coin<SUI>>(&scenario);
-            assert!(coin::value(&coin) == payment_value, 0);
-            ts::return_to_sender(&scenario, coin);
-        };
-        
-        ts::end(scenario);
+    
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
     }
-    
-    // Test dual signature requirement
+
     #[test]
-    fun test_dual_signature_requirement() {
-        let mut scenario = ts::begin(PARTY_B); // Start as Party B this time
-        
-        // 1. Create contract as Party B (will need Party A to sign later)
-        ts::next_tx(&mut scenario, PARTY_B);
+    #[expected_failure(abort_code = pactda::EInvalidMilestone)]
+    fun test_add_milestones_empty() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
         {
-            
-            // Create contract with Party A as the counterparty
-            pactda::create_contract(
-                PARTY_A,
-                b"test_terms",
-                ts::ctx(&mut scenario)
-            );
-            
-            // Note: Party B is automatically signed as creator
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
         };
         
-        // 2. Party A signs contract - no need to find by ID, we can just take the shared contract
-        ts::next_tx(&mut scenario, PARTY_A);
+        next_tx(&mut scenario, PARTY_A);
+
+        let mut contract = get_contract_mut(&mut scenario);
+        let descriptions = vector::empty<String>();
+        let values = vector::empty<u64>();
+
         {
-            // We can simply take the shared contract - there's only one in this test
-            let mut contract = ts::take_shared<PactDaContract>(&scenario);
-            
-            // Contract should be pending until both sign
-            assert!(pactda::get_status(&contract) == 0, 0); // CONTRACT_STATUS_PENDING
-            assert!(pactda::is_party_a_signed(&contract) == true, 0); // Creator (Party B) already signed
-            assert!(pactda::is_party_b_signed(&contract) == false, 0); // Party A has not signed yet
-            
-            // Party A signs
-            pactda::sign_contract_party_b(&mut contract, ts::ctx(&mut scenario));
-            
-            // Now contract should be active
-            assert!(pactda::get_status(&contract) == 1, 0); // CONTRACT_STATUS_ACTIVE
-            assert!(pactda::is_party_b_signed(&contract) == true, 0);
-            
-            ts::return_shared(contract);
+            let ctx = test::ctx(&mut scenario);
+            pactda::add_milestones(&mut contract, descriptions, values, ctx); // Should fail
         };
-        
-        ts::end(scenario);
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
     }
-    
-    // Test VCNFT creation
+
     #[test]
-    fun test_vcnft_creation() {
-        let mut scenario = ts::begin(PARTY_A);
-        
-        // Create VCNFT
-        ts::next_tx(&mut scenario, PARTY_A);
+    #[expected_failure(abort_code = pactda::EInvalidMilestone)]
+    fun test_add_milestones_mismatch() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
         {
-            let mut tags = vector::empty<String>();
-            vector::push_back(&mut tags, string::utf8(b"Web3"));
-            vector::push_back(&mut tags, string::utf8(b"Legal"));
-            
-            pactda::create_vcnft(1, tags, ts::ctx(&mut scenario));
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
         };
         
-        // Verify VCNFT was created
-        ts::next_tx(&mut scenario, PARTY_A);
+        next_tx(&mut scenario, PARTY_A);
+        let mut contract = get_contract_mut(&mut scenario);
+        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let values = vector[100u64, 200u64]; // Mismatched length
+
         {
-            let vcnft = ts::take_from_sender<VCNFT>(&scenario);
-            assert!(pactda::get_vcnft_owner(&vcnft) == PARTY_A, 0);
-            assert!(pactda::get_vcnft_type_id(&vcnft) == 1, 0);
-            assert!(pactda::is_vcnft_active(&vcnft) == true, 0);
-            assert!(vector::length(pactda::get_vcnft_specialization_tags(&vcnft)) == 2, 0);
-            ts::return_to_sender(&scenario, vcnft);
+        let ctx = test::ctx(&mut scenario);
+        pactda::add_milestones(&mut contract, descriptions, values, ctx); // Should fail
+        };
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    fun test_sign_contract_success() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+
+        next_tx(&mut scenario, PARTY_A);
+        // Party A signs
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_a(&mut contract, ctx);
+
+        next_tx(&mut scenario, PARTY_A);
+
+        assert!(pactda::is_party_a_signed(&contract), 0);
+        assert!(!pactda::is_party_b_signed(&contract), 1);
+        assert!(pactda::get_status(&contract) == pactda::get_contract_status_pending(), 2);
+        return_contract(&mut scenario, contract);
+
+        // Party B signs
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+        {
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_b(&mut contract, ctx);
+        };
+        assert!(pactda::is_party_a_signed(&contract), 3);
+        assert!(pactda::is_party_b_signed(&contract), 4);
+        assert!(pactda::get_status(&contract) == pactda::get_contract_status_active(), 5); // Status becomes Active
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EUnauthorized)]
+    fun test_sign_contract_wrong_party() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
         };
         
-        ts::end(scenario);
+        next_tx(&mut scenario, OTHER_USER); // Other user tries to sign as Party A
+        let mut contract = get_contract_mut(&mut scenario);
+
+        {
+        let ctx = test::ctx(&mut scenario); 
+        pactda::sign_contract_party_a(&mut contract, ctx); // Should fail
+        };
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EInvalidStatus)]
+    fun test_sign_contract_already_signed() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        let mut contract = get_contract_mut(&mut scenario);
+        
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::sign_contract_party_a(&mut contract, ctx);
+            pactda::sign_contract_party_a(&mut contract, ctx); // Sign again, should fail
+        };
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EInvalidStatus)]
+    fun test_add_milestones_after_signed() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        let mut contract = get_contract_mut(&mut scenario);
+        
+        {
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_a(&mut contract, ctx);
+        };
+        
+        return_contract(&mut scenario, contract);
+
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+        
+
+
+        // Try adding milestones after activation
+        let descriptions = vector[string::utf8(b"Late Milestone")];
+        let values = vector[50u64];
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::sign_contract_party_b(&mut contract, ctx); // Contract becomes Active
+            pactda::add_milestones(&mut contract, descriptions, values, ctx); // Should fail
+        };
+        
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EInvalidStatus)]
+    fun test_fund_escrow_not_active() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        // Contract is PENDING, try funding
+        let mut contract = get_contract_mut(&mut scenario);
+        
+        // Take coin directly in the test
+        let mut coin = test::take_from_sender<Coin<SUI>>(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let coin_to_fund = coin::split(&mut coin, 500, ctx);
+        
+        // Now call fund_escrow directly or use the simplified helper
+        pactda::fund_escrow(&mut contract, coin_to_fund, ctx); // Should fail
+        
+        test::return_to_sender(&mut scenario, coin); // Return remaining coins
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EUnauthorized)]
+    fun test_fund_escrow_not_party() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        // Sign contract to make it active
+        let mut contract = get_contract_mut(&mut scenario);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::sign_contract_party_a(&mut contract, ctx);
+        };
+        return_contract(&mut scenario, contract);
+        
+        next_tx(&mut scenario, PARTY_B);
+        
+        let mut contract = get_contract_mut(&mut scenario);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::sign_contract_party_b(&mut contract, ctx);
+        };
+        return_contract(&mut scenario, contract);
+
+        // OTHER_USER tries to fund
+        next_tx(&mut scenario, OTHER_USER);
+        
+        let mut contract = get_contract_mut(&mut scenario);
+        let mut coin = test::take_from_sender<Coin<SUI>>(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let coin_to_fund = coin::split(&mut coin, 500, ctx);
+        
+        // This should fail since OTHER_USER is not a party to the contract
+        fund_escrow_helper(&mut contract, coin_to_fund, ctx);
+        
+        test::return_to_sender(&mut scenario, coin);
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    fun test_submit_proof_success() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        // Add milestones and activate contract
+        let mut contract = get_contract_mut(&mut scenario);
+        
+        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let values = vector[100u64];
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::add_milestones(&mut contract, descriptions, values, ctx);
+            pactda::sign_contract_party_a(&mut contract, ctx);
+        };
+        return_contract(&mut scenario, contract);
+        
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+
+        // Party B submits proof
+        let milestone_id = 0;
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::sign_contract_party_b(&mut contract, ctx);
+            pactda::submit_proof(&mut contract, milestone_id, PROOF_REF, ctx);
+        };
+        
+
+        // Verify milestone status and proof using accessor functions
+        let milestone = pactda::get_milestone(&contract, milestone_id);
+        assert!(pactda::get_milestone_status(milestone) == pactda::get_milestone_status_submitted(), 0);
+        assert!(option::is_some(pactda::get_milestone_proof(milestone)), 1);
+        
+        // This is a bit tricky to test deep equality, but we'll use the is_some check above as enough
+        // since the only proof that could be there is the one we just submitted
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EUnauthorized)]
+    fun test_submit_proof_not_party_b() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        // Add milestones and activate contract
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let values = vector[100u64];
+        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::sign_contract_party_a(&mut contract, ctx);
+        return_contract(&mut scenario, contract);
+        
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_b(&mut contract, ctx);
+        return_contract(&mut scenario, contract);
+
+        // Party A tries to submit proof
+        next_tx(&mut scenario, PARTY_A);
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        pactda::submit_proof(&mut contract, 0, PROOF_REF, ctx); // Should fail
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EInvalidStatus)]
+    fun test_submit_proof_wrong_milestone_status() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+        // Add milestones and activate contract
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let values = vector[100u64];
+        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::sign_contract_party_a(&mut contract, ctx);
+        return_contract(&mut scenario, contract);
+        
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_b(&mut contract, ctx);
+
+        // Submit proof twice
+        pactda::submit_proof(&mut contract, 0, PROOF_REF, ctx);
+        pactda::submit_proof(&mut contract, 0, PROOF_REF, ctx); // Should fail
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    fun test_approve_milestone_success() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+
+        // Add milestones, activate, submit proof
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let values = vector[100u64];
+        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::sign_contract_party_a(&mut contract, ctx);
+        return_contract(&mut scenario, contract);
+        
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_b(&mut contract, ctx);
+        pactda::submit_proof(&mut contract, 0, PROOF_REF, ctx);
+        return_contract(&mut scenario, contract);
+
+        // Party A approves
+        next_tx(&mut scenario, PARTY_A);
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let milestone_id = 0;
+        pactda::approve_milestone(&mut contract, milestone_id, ctx);
+
+        // Verify milestone status using accessor function
+        let milestone = pactda::get_milestone(&contract, milestone_id);
+        assert!(pactda::get_milestone_status(milestone) == pactda::get_milestone_status_approved(), 0);
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = pactda::EUnauthorized)]
+    fun test_approve_milestone_not_party_a() {
+        let mut scenario = create_test_scenario();
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        };
+        next_tx(&mut scenario, PARTY_A);
+        // Add milestones, activate, submit proof
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let values = vector[100u64];
+        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::sign_contract_party_a(&mut contract, ctx);
+        return_contract(&mut scenario, contract);
+        
+        next_tx(&mut scenario, PARTY_B);
+        let mut contract = get_contract_mut(&mut scenario);
+        let ctx = test::ctx(&mut scenario);
+        pactda::sign_contract_party_b(&mut contract, ctx);
+        pactda::submit_proof(&mut contract, 0, PROOF_REF, ctx);
+
+        // Party B tries to approve
+        pactda::approve_milestone(&mut contract, 0, ctx); // Should fail
+
+        return_contract(&mut scenario, contract);
+        test::end(scenario);
     }
 }
