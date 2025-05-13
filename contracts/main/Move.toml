@@ -9,9 +9,8 @@ published-at = "0x211ee8342ef2f37f154921ffd7697e15df6c45f27b522d270aa94090d54d11
 [dependencies]
 Wormhole = { local = "../../../wormhole/sui/wormhole" }
 
-
 [addresses]
-pactda = "0x211ee8342ef2f37f154921ffd7697e15df6c45f27b522d270aa94090d54d1129"
+pactda = "0x0"
 wormhole = "0xf47329f4344f3bf0f8e436e2f7b485466cff300f12a166563995d3888c296a94"
 
 [dev-dependencies]

@@ -196,45 +196,6 @@ module pactda::pactda_wormhole_bridge;
         wormhole::state::message_fee(state)
     }
 
-    /// Convenience wrapper that handles the complete flow of approving a milestone cross-chain:
-    /// 1. Creates the message ticket
-    /// 2. Calculates the required fee
-    /// 3. Publishes the message to Wormhole
-    public entry fun send_approve_milestone_message(
-        bridge: &mut PactDaBridge,
-        wormhole_state: &mut WormholeState, // Changed to &mut
-        clock: &Clock, // Added Clock parameter
-        target_chain: u16,
-        target_contract_id: vector<u8>,
-        milestone_id: u64,
-        payment: &mut Coin<SUI>,
-        ctx: &mut TxContext
-    ) {
-        // Get message ticket
-        let message_ticket = approve_milestone_cross_chain(
-            bridge,
-            target_chain,
-            target_contract_id,
-            milestone_id,
-            ctx
-        );
-        
-        // Get the required fee from Wormhole - use the correct function call
-        let fee = fee(wormhole_state);
-        
-        // Split the payment to cover the fee
-        let fee_payment = coin::split<SUI>(payment, fee, ctx);
-        
-        // Actually publish the message to Wormhole
-        // Corrected parameter order and types
-        wormhole::publish_message::publish_message(
-            wormhole_state,
-            fee_payment, 
-            message_ticket,
-            clock
-        );
-    }
-
     // === Outgoing Cross-Chain Messages ===
 
     /// Prepares a message to approve a milestone on a foreign chain contract.

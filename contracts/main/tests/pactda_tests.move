@@ -18,15 +18,17 @@ module pactda::pactda_tests {
 
     // PactDa Core Import
     use pactda::pactda::{
-        Self, PactDaContract, Milestone, Escrow, VCNFT,
+        Self, PactDaContract, Milestone, Escrow,
         // Status Constants
         CONTRACT_STATUS_PENDING, CONTRACT_STATUS_ACTIVE, CONTRACT_STATUS_COMPLETED,
+        CONTRACT_STATUS_CANCELLED,
         ESCROW_STATUS_FUNDED, ESCROW_STATUS_RELEASED, ESCROW_STATUS_REFUNDED,
         MILESTONE_STATUS_PENDING, MILESTONE_STATUS_SUBMITTED, MILESTONE_STATUS_APPROVED,
         // Error Constants (from pactda.move)
         EInvalidStatus, EUnauthorized, EInvalidMilestone
         // Note: Other error codes used previously might not exist or apply anymore.
     };
+    use pactda::pactda::get_contract_status_cancelled;
 
     // === Test Constants ===
     const PARTY_A: address = @0xA; // Renamed from CLIENT
@@ -43,21 +45,21 @@ module pactda::pactda_tests {
         let mut scenario = test::begin(PARTY_A); // Start scenario as PARTY_A
 
         // Mint SUI for Party A
-        let ctx = test::ctx(&mut scenario);
-        let coin = coin::mint_for_testing<SUI>(INITIAL_BALANCE, ctx);
-        transfer::public_transfer(coin, PARTY_A);
+        let tx_ctx_a = ctx(&mut scenario); // Changed from test::ctx
+        let coin_a = coin::mint_for_testing<SUI>(INITIAL_BALANCE, tx_ctx_a);
+        transfer::public_transfer(coin_a, PARTY_A);
 
         // Mint SUI for Party B
         next_tx(&mut scenario, PARTY_B);
-        let ctx = test::ctx(&mut scenario);
-        let coin = coin::mint_for_testing<SUI>(INITIAL_BALANCE, ctx);
-        transfer::public_transfer(coin, PARTY_B);
+        let tx_ctx_b = ctx(&mut scenario); // Changed from test::ctx
+        let coin_b = coin::mint_for_testing<SUI>(INITIAL_BALANCE, tx_ctx_b);
+        transfer::public_transfer(coin_b, PARTY_B);
 
         // Mint SUI for Other User
         next_tx(&mut scenario, OTHER_USER);
-        let ctx = test::ctx(&mut scenario);
-        let coin = coin::mint_for_testing<SUI>(INITIAL_BALANCE, ctx);
-        transfer::public_transfer(coin, OTHER_USER);
+        let tx_ctx_other = ctx(&mut scenario); // Changed from test::ctx
+        let coin_other = coin::mint_for_testing<SUI>(INITIAL_BALANCE, tx_ctx_other);
+        transfer::public_transfer(coin_other, OTHER_USER);
 
         scenario
     }
@@ -75,12 +77,10 @@ module pactda::pactda_tests {
     #[test_only]
     /// Helper to get the Escrow object associated with a contract.
     fun get_escrow_mut(scenario: &mut Scenario, contract: &PactDaContract): Escrow {
-        let escrow_addr_opt = pactda::get_escrow_id(contract);
-        assert!(option::is_some(&escrow_addr_opt), 100); // Escrow must exist
-        let escrow_addr = option::destroy_some(escrow_addr_opt);
+        let escrow_id_opt = pactda::get_escrow_id(contract);
+        assert!(option::is_some(&escrow_id_opt), 100); // Escrow must exist
+        let escrow_id = option::destroy_some(escrow_id_opt);
         
-        // Get the escrow object ID and take it from the shared objects
-        let escrow_id = object::id_from_address(escrow_addr);
         test::take_shared_by_id<Escrow>(scenario, escrow_id)
     }
 
@@ -123,8 +123,53 @@ module pactda::pactda_tests {
 
         next_tx(&mut scenario, PARTY_A);
         let ctx = test::ctx(&mut scenario);
-        pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+        pactda::create_contract(
+            option::some(PARTY_B), // party_b: Option<address>
+            string::utf8(b"Test Contract"), // title: String
+            option::some(0),  // contract_type: Option<u8>
+            option::some(b"Terms for test contract"), // terms_reference: Option<vector<u8>>
+            option::some(1000u64), // contract_start_date: Option<u64>
+            option::some(2000u64), // contract_deadline_date: Option<u64>
+            option::none(), // metadata: Option<vector<u8>>
+        ctx);
 
+        test::end(scenario);
+    }
+
+    #[test]
+    fun test_create_contract_cross_chain_success() {
+        let mut scenario = create_test_scenario();
+
+        // Define cross-chain address for Party B (example Ethereum address)
+        let cross_chain_party_address: vector<u8> = x"0123456789abcdef0123456789abcdef01234567";
+        let chain_id: u16 = 2; // Ethereum chain ID in Wormhole convention
+
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            // Create a contract with cross-chain Party B
+            pactda::create_contract_cross_chain(
+                chain_id,
+                cross_chain_party_address,
+                string::utf8(b"Cross-Chain Contract"),
+                option::some(0),  // contract_type
+                option::some(b"Terms for test contract"),
+                option::some(1000u64), // contract_start_date: Option<u64>
+                option::some(2000u64), // contract_deadline_date: Option<u64>
+                option::none(), // metadata: Option<vector<u8>>
+                ctx
+            );
+        };
+
+        // Verify contract was created with cross-chain party
+        let contract = get_contract_mut(&mut scenario);
+        assert!(pactda::get_party_a(&contract) == PARTY_A, 0);
+        // Party B on-chain address should be @0x0 for cross-chain contracts
+        assert!(pactda::get_party_b(&contract) == @0x0, 1);
+        // Status should be DRAFT after creation
+        assert!(pactda::get_status(&contract) == pactda::get_contract_status_draft(), 2);
+
+        return_contract(&mut scenario, contract);
         test::end(scenario);
     }
 
@@ -133,45 +178,57 @@ module pactda::pactda_tests {
         let mut scenario = create_test_scenario();
         next_tx(&mut scenario, PARTY_A);
         {
-            let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            let ctx_create = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),
+                option::some(b"Terms for test contract"),
+                option::some(1000),
+                option::some(2000),
+                option::none(),
+                ctx_create
+            );        
         };
 
-        next_tx(&mut scenario, PARTY_A);
-        
-        // Get the contract
+        next_tx(&mut scenario, PARTY_A); // Party A submits the contract
         let mut contract = get_contract_mut(&mut scenario);
+        let ctx_submit = test::ctx(&mut scenario);
+        pactda::submit_contract(&mut contract, ctx_submit);
+        assert!(pactda::get_status(&contract) == pactda::get_contract_status_pending(), 0); // Verify status is PENDING
+
+        // Party A adds milestones (can reuse ctx_submit if same transaction block, or create new if separate)
+        // For simplicity, let's assume it's part of the same logical step by Party A, using ctx_submit.
+        // If it were a truly separate transaction, we'd do next_tx and get a new ctx.
         
-        // Create a new context for this transaction
-        let ctx = test::ctx(&mut scenario);
-        
-        let descriptions = vector[string::utf8(b"Milestone 1"), string::utf8(b"Milestone 2")];
+        let description_hashes = vector[b"Milestone 1 Hash", b"Milestone 2 Hash"];
         let values = vector[100u64, 200u64];
-        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::add_milestones(&mut contract, description_hashes, values, ctx_submit);
 
         // Verify milestones exist and have correct initial state
         let milestones_opt = pactda::get_milestones(&contract);
-        assert!(option::is_some(milestones_opt), 0);
+        assert!(option::is_some(milestones_opt), 1); // Adjusted assert index
         let milestones = option::borrow(milestones_opt);
-        assert!(vector::length(milestones) == 2, 1);
+        assert!(vector::length(milestones) == 2, 2); // Adjusted assert index
 
         // Use the milestone accessor functions for milestone 0
         let m0 = vector::borrow(milestones, 0);
-        assert!(pactda::get_milestone_id(m0) == 0, 2);
-        assert!(*pactda::get_milestone_description(m0) == string::utf8(b"Milestone 1"), 3);
-        assert!(pactda::get_milestone_value(m0) == 100, 4);
-        assert!(pactda::get_milestone_status(m0) == pactda::get_milestone_status_pending(), 5);
-        assert!(option::is_none(pactda::get_milestone_proof(m0)), 6);
+        assert!(pactda::get_milestone_id(m0) == 0, 3);
+        assert!(*pactda::get_milestone_description_hash(m0) == b"Milestone 1 Hash", 4);
+        assert!(pactda::get_milestone_value(m0) == 100, 5);
+        assert!(pactda::get_milestone_status(m0) == pactda::get_milestone_status_pending(), 6);
+        assert!(option::is_none(pactda::get_milestone_proof(m0)), 7);
 
         // Use the milestone accessor functions for milestone 1
         let m1 = vector::borrow(milestones, 1);
-        assert!(pactda::get_milestone_id(m1) == 1, 7);
-        assert!(*pactda::get_milestone_description(m1) == string::utf8(b"Milestone 2"), 8);
-        assert!(pactda::get_milestone_value(m1) == 200, 9);
-        assert!(pactda::get_milestone_status(m1) == pactda::get_milestone_status_pending(), 10);
-        assert!(option::is_none(pactda::get_milestone_proof(m1)), 11);
+        assert!(pactda::get_milestone_id(m1) == 1, 8);
+        assert!(*pactda::get_milestone_description_hash(m1) == b"Milestone 2 Hash", 9);
+        assert!(pactda::get_milestone_value(m1) == 200, 10);
+        assert!(pactda::get_milestone_status(m1) == pactda::get_milestone_status_pending(), 11);
+        assert!(option::is_none(pactda::get_milestone_proof(m1)), 12);
 
-        assert!(pactda::get_status(&contract) == pactda::get_contract_status_pending(), 12); // Status unchanged
+        // Status should remain PENDING after adding milestones
+        assert!(pactda::get_status(&contract) == pactda::get_contract_status_pending(), 13); 
 
         return_contract(&mut scenario, contract);
         test::end(scenario);
@@ -183,19 +240,37 @@ module pactda::pactda_tests {
         let mut scenario = create_test_scenario();
         next_tx(&mut scenario, PARTY_A);
         {
-            let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            let ctx_create = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),
+                option::some(b"Terms for test contract"),
+                option::some(1000),
+                option::some(2000),
+                option::none(),
+                ctx_create
+            );     
         };
 
-        next_tx(&mut scenario, OTHER_USER); // Switch to other user
+        // Party A submits the contract to make it PENDING
+        next_tx(&mut scenario, PARTY_A);
+        let mut contract_for_submit = get_contract_mut(&mut scenario);
+        let ctx_submit = test::ctx(&mut scenario);
+        pactda::submit_contract(&mut contract_for_submit, ctx_submit);
+        return_contract(&mut scenario, contract_for_submit); // Return it as it's taken by OTHER_USER next
+
+        // OTHER_USER attempts to add milestones
+        next_tx(&mut scenario, OTHER_USER); 
         let mut contract = get_contract_mut(&mut scenario);
-        let descriptions = vector[string::utf8(b"Milestone X")];
+        let description_hashes = vector[b"Milestone X Hash"];
         let values = vector[50u64];
 
         {
             // This should fail since OTHER_USER is not a party to the contract
-            let ctx = test::ctx(&mut scenario);
-            pactda::add_milestones(&mut contract, descriptions, values, ctx);
+            // and the contract is PENDING (or DRAFT, add_milestones checks for PENDING)
+            let ctx_add_milestones = test::ctx(&mut scenario);
+            pactda::add_milestones(&mut contract, description_hashes, values, ctx_add_milestones);
         };
     
         return_contract(&mut scenario, contract);
@@ -208,19 +283,37 @@ module pactda::pactda_tests {
         let mut scenario = create_test_scenario();
         next_tx(&mut scenario, PARTY_A);
         {
-            let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            let ctx_create = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),
+                option::some(b"Terms for test contract"),
+                option::some(1000),
+                option::some(2000),
+                option::none(),
+                ctx_create
+            );     
         };
         
+        // Party A submits the contract to make it PENDING
         next_tx(&mut scenario, PARTY_A);
-
         let mut contract = get_contract_mut(&mut scenario);
-        let descriptions = vector::empty<String>();
+        let ctx_submit = test::ctx(&mut scenario);
+        pactda::submit_contract(&mut contract, ctx_submit);
+        // No need to return and re-get contract if the next action is by the same party in the same block
+
+        let description_hashes = vector::empty<vector<u8>>();
         let values = vector::empty<u64>();
 
         {
-            let ctx = test::ctx(&mut scenario);
-            pactda::add_milestones(&mut contract, descriptions, values, ctx); // Should fail
+            // Re-use ctx_submit if it's considered the same transaction block for Party A
+            // If it's a new transaction, then:
+            // next_tx(&mut scenario, PARTY_A);
+            // let mut contract = get_contract_mut(&mut scenario);
+            // let ctx_add_milestones = test::ctx(&mut scenario);
+            // For this test, it's fine to assume Party A is doing this in the same logical step.
+            pactda::add_milestones(&mut contract, description_hashes, values, ctx_submit); // Should fail
         };
 
         return_contract(&mut scenario, contract);
@@ -233,18 +326,32 @@ module pactda::pactda_tests {
         let mut scenario = create_test_scenario();
         next_tx(&mut scenario, PARTY_A);
         {
-            let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            let ctx_create = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),
+                option::some(b"Terms for test contract"),
+                option::some(1000),
+                option::some(2000),
+                option::none(),
+                ctx_create
+            );     
         };
         
+        // Party A submits the contract to make it PENDING
         next_tx(&mut scenario, PARTY_A);
         let mut contract = get_contract_mut(&mut scenario);
-        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let ctx_submit = test::ctx(&mut scenario);
+        pactda::submit_contract(&mut contract, ctx_submit);
+        // No need to return and re-get contract if the next action is by the same party in the same block
+
+        let description_hashes = vector[b"Milestone 1 Hash"]; // vector<vector<u8>>
         let values = vector[100u64, 200u64]; // Mismatched length
 
         {
-        let ctx = test::ctx(&mut scenario);
-        pactda::add_milestones(&mut contract, descriptions, values, ctx); // Should fail
+            // Re-use ctx_submit if it's considered the same transaction block for Party A
+            pactda::add_milestones(&mut contract, description_hashes, values, ctx_submit); // Should fail
         };
 
         return_contract(&mut scenario, contract);
@@ -254,37 +361,53 @@ module pactda::pactda_tests {
     #[test]
     fun test_sign_contract_success() {
         let mut scenario = create_test_scenario();
+
+        // 1. Party A creates contract
         next_tx(&mut scenario, PARTY_A);
         {
-            let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            let ctx_create = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(),     // metadata
+                ctx_create
+            );     
         };
 
+        // 2. Party A signs, then submits
         next_tx(&mut scenario, PARTY_A);
-        // Party A signs
-        let mut contract = get_contract_mut(&mut scenario);
-        let ctx = test::ctx(&mut scenario);
-        pactda::sign_contract_party_a(&mut contract, ctx);
+        let mut contract_a_ops = get_contract_mut(&mut scenario);
+        let ctx_a_ops = test::ctx(&mut scenario);
 
-        next_tx(&mut scenario, PARTY_A);
+        // Party A signs (contract is DRAFT)
+        pactda::submit_contract(&mut contract_a_ops, ctx_a_ops);
+        pactda::sign_contract_party_a(&mut contract_a_ops, ctx_a_ops);
+        assert!(pactda::is_party_a_signed(&contract_a_ops), 0);
+        assert!(!pactda::is_party_b_signed(&contract_a_ops), 1);
+        assert!(pactda::get_status(&contract_a_ops) == pactda::get_contract_status_draft(), 2); // Status is DRAFT
 
-        assert!(pactda::is_party_a_signed(&contract), 0);
-        assert!(!pactda::is_party_b_signed(&contract), 1);
-        assert!(pactda::get_status(&contract) == pactda::get_contract_status_pending(), 2);
-        return_contract(&mut scenario, contract);
+        // Party A submits (contract moves from DRAFT to PENDING)
+        pactda::submit_contract(&mut contract_a_ops, ctx_a_ops);
+        assert!(pactda::get_status(&contract_a_ops) == pactda::get_contract_status_pending(), 3); // Status is PENDING
+        
+        return_contract(&mut scenario, contract_a_ops);
 
-        // Party B signs
+        // 3. Party B signs
         next_tx(&mut scenario, PARTY_B);
-        let mut contract = get_contract_mut(&mut scenario);
-        {
-        let ctx = test::ctx(&mut scenario);
-        pactda::sign_contract_party_b(&mut contract, ctx);
-        };
-        assert!(pactda::is_party_a_signed(&contract), 3);
-        assert!(pactda::is_party_b_signed(&contract), 4);
-        assert!(pactda::get_status(&contract) == pactda::get_contract_status_active(), 5); // Status becomes Active
+        let mut contract_b_ops = get_contract_mut(&mut scenario);
+        let ctx_b_ops = test::ctx(&mut scenario);
 
-        return_contract(&mut scenario, contract);
+        pactda::sign_contract_party_b(&mut contract_b_ops, ctx_b_ops);
+        
+        assert!(pactda::is_party_a_signed(&contract_b_ops), 4); // Party A still signed
+        assert!(pactda::is_party_b_signed(&contract_b_ops), 5); // Party B now signed
+        assert!(pactda::get_status(&contract_b_ops) == pactda::get_contract_status_active(), 6); // Status becomes Active
+
+        return_contract(&mut scenario, contract_b_ops);
         test::end(scenario);
     }
 
@@ -295,7 +418,15 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(), // metadata
+                ctx);     
         };
         
         next_tx(&mut scenario, OTHER_USER); // Other user tries to sign as Party A
@@ -317,7 +448,15 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(), // metadata
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
@@ -340,7 +479,15 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(), // metadata
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
@@ -359,12 +506,12 @@ module pactda::pactda_tests {
 
 
         // Try adding milestones after activation
-        let descriptions = vector[string::utf8(b"Late Milestone")];
+        let description_hashes = vector[b"Late Milestone"]; // Changed from vector<String> to vector<vector<u8>>
         let values = vector[50u64];
         {
             let ctx = test::ctx(&mut scenario);
             pactda::sign_contract_party_b(&mut contract, ctx); // Contract becomes Active
-            pactda::add_milestones(&mut contract, descriptions, values, ctx); // Should fail
+            pactda::add_milestones(&mut contract, description_hashes, values, ctx); // Should fail
         };
         
 
@@ -379,7 +526,15 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(), // metadata
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
@@ -406,7 +561,15 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(), // metadata
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
@@ -449,18 +612,26 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64), // contract_start_date
+                option::some(2000u64), // contract_deadline_date
+                option::none(), // metadata
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
         // Add milestones and activate contract
         let mut contract = get_contract_mut(&mut scenario);
         
-        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let description_hashes = vector[b"Milestone 1"]; // Changed variable name and type
         let values = vector[100u64];
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::add_milestones(&mut contract, descriptions, values, ctx);
+            pactda::add_milestones(&mut contract, description_hashes, values, ctx);
             pactda::sign_contract_party_a(&mut contract, ctx);
         };
         return_contract(&mut scenario, contract);
@@ -496,16 +667,24 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64),
+                option::some(2000u64),
+                option::none(),
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
         // Add milestones and activate contract
         let mut contract = get_contract_mut(&mut scenario);
         let ctx = test::ctx(&mut scenario);
-        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let description_hashes = vector[b"Milestone 1"]; // Changed variable name and type
         let values = vector[100u64];
-        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::add_milestones(&mut contract, description_hashes, values, ctx);
         pactda::sign_contract_party_a(&mut contract, ctx);
         return_contract(&mut scenario, contract);
         
@@ -532,15 +711,23 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64),
+                option::some(2000u64),
+                option::none(),
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
         // Add milestones and activate contract
         let mut contract = get_contract_mut(&mut scenario);
         let ctx = test::ctx(&mut scenario);
-        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let description_hashes = vector[b"Milestone 1"]; // Changed variable name and type
         let values = vector[100u64];
-        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::add_milestones(&mut contract, description_hashes, values, ctx); // Use corrected variable
         pactda::sign_contract_party_a(&mut contract, ctx);
         return_contract(&mut scenario, contract);
         
@@ -563,16 +750,25 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64),
+                option::some(2000u64),
+                option::none(),
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
 
         // Add milestones, activate, submit proof
         let mut contract = get_contract_mut(&mut scenario);
         let ctx = test::ctx(&mut scenario);
-        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let description_hashes = vector[b"Milestone 1"]; // Changed variable name and type
         let values = vector[100u64];
-        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::add_milestones(&mut contract, description_hashes, values, ctx);
+        pactda::submit_contract(&mut contract, ctx);
         pactda::sign_contract_party_a(&mut contract, ctx);
         return_contract(&mut scenario, contract);
         
@@ -605,15 +801,24 @@ module pactda::pactda_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let ctx = test::ctx(&mut scenario);
-            pactda::create_contract(PARTY_B, TERMS_REF, ctx);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Test Contract"),
+                option::some(0u8),  // contract_type
+                option::some(b"Terms for test contract"), // terms_reference
+                option::some(1000u64),
+                option::some(2000u64),
+                option::none(),
+                ctx);     
         };
         next_tx(&mut scenario, PARTY_A);
         // Add milestones, activate, submit proof
         let mut contract = get_contract_mut(&mut scenario);
         let ctx = test::ctx(&mut scenario);
-        let descriptions = vector[string::utf8(b"Milestone 1")];
+        let description_hashes = vector[b"Milestone 1"]; // Changed variable name and type
         let values = vector[100u64];
-        pactda::add_milestones(&mut contract, descriptions, values, ctx);
+        pactda::add_milestones(&mut contract, description_hashes, values, ctx); // Use corrected variable
+        pactda::submit_contract(&mut contract, ctx);
         pactda::sign_contract_party_a(&mut contract, ctx);
         return_contract(&mut scenario, contract);
         
@@ -627,6 +832,87 @@ module pactda::pactda_tests {
         pactda::approve_milestone(&mut contract, 0, ctx); // Should fail
 
         return_contract(&mut scenario, contract);
+        test::end(scenario);
+    }
+
+    #[test]
+    fun test_update_contract_success() {
+        let mut scenario = create_test_scenario();
+
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Original Title"),
+                option::some(0u8),
+                option::some(b"Original Terms"), // terms_reference is vector<u8>
+                option::some(1000u64),
+                option::some(2000u64),
+                option::none(),
+                ctx
+            );
+        };
+
+        // Update the contract
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let mut contract = get_contract_mut(&mut scenario);
+            let ctx = test::ctx(&mut scenario);
+
+            pactda::update_contract(
+                &mut contract,
+                option::some(string::utf8(b"Updated Title")),
+                option::some(b"Updated Terms"), // Changed to Option<vector<u8>>
+                option::some(1500u64),          // Added u64 suffix
+                option::some(2500u64),          // Added u64 suffix
+                option::some(b"metadata"),
+                ctx
+            );
+
+            // Verify update
+            assert!(pactda::get_title(&contract) == string::utf8(b"Updated Title"), 0);
+            assert!(pactda::get_terms_content(&contract) == string::utf8(b"Updated Terms"), 1); // Assertion remains valid
+
+            return_contract(&mut scenario, contract);
+        };
+
+        test::end(scenario);
+    }
+
+    #[test]
+    fun test_deny_contract_success() {
+        let mut scenario = create_test_scenario();
+
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let ctx = test::ctx(&mut scenario);
+            pactda::create_contract(
+                option::some(PARTY_B),
+                string::utf8(b"Contract to Deny"),
+                option::some(0), // contract_type
+                option::some(b"Terms"), // terms_reference
+                option::none(), // contract_start_date
+                option::none(), // contract_deadline_date
+                option::none(), // metadata
+                ctx
+            );
+        };
+
+        // Party A denies the contract
+        next_tx(&mut scenario, PARTY_A);
+        {
+            let mut contract = get_contract_mut(&mut scenario);
+            let ctx = test::ctx(&mut scenario);
+
+            pactda::deny_contract(&mut contract, ctx);
+
+            // Verify contract is cancelled
+            assert!(pactda::get_status(&contract) == pactda::get_contract_status_cancelled(), 0);
+
+            return_contract(&mut scenario, contract);
+        };
+
         test::end(scenario);
     }
 }

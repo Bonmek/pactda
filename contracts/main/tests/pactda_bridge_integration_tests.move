@@ -63,8 +63,15 @@ module pactda::pactda_bridge_integration_tests {
         // Create contract
         next_tx(scenario, PARTY_A);
         let ctx = test::ctx(scenario);
-        pactda::create_contract(PARTY_B, TERMS_REF, ctx);
-
+        pactda::create_contract(
+            option::some(PARTY_B), // Changed
+            string::utf8(b"Test Contract"),
+            option::some(0u8),  // Changed: contract_type as Option<u8>
+            option::some(b"Terms for test contract"), // Changed: terms_reference as Option<vector<u8>>
+            option::some(1000u64), // Ensured u64
+            option::some(2000u64), // Ensured u64
+            option::none(),
+            ctx);     
         // Add milestones if needed
         if (milestone_count > 0) {
             next_tx(scenario, PARTY_A);
@@ -72,20 +79,14 @@ module pactda::pactda_bridge_integration_tests {
             // Take the shared object
             let mut contract = test::take_shared<PactDaContract>(scenario);
             
-            let mut descriptions = vector::empty<String>();
-            let mut values = vector::empty<u64>();
+            let description_hashes = vector[b"Milestone 1 Hash", b"Milestone 2 Hash"];
+            let values = vector[100u64, 200u64];
 
-            let mut i = 1;
-            while (i <= milestone_count) {
-                let mut desc = string::utf8(b"Milestone ");
-                string::append(&mut desc, string::utf8(b"1"));
-                vector::push_back(&mut descriptions, desc);
-                vector::push_back(&mut values, 100 * i);
-                i = i + 1;
-            };
 
             let ctx = test::ctx(scenario);
-            pactda::add_milestones(&mut contract, descriptions, values, ctx);
+            pactda::add_milestones(&mut contract, description_hashes, values, ctx);
+
+            pactda::submit_contract(&mut contract, ctx);
             
             // Sign contract
             let ctx = test::ctx(scenario);
@@ -236,8 +237,15 @@ module pactda::pactda_bridge_integration_tests {
         // Create contract but DON'T activate it (don't sign it)
         next_tx(&mut scenario, PARTY_A);
         let ctx = test::ctx(&mut scenario);
-        pactda::create_contract(PARTY_B, TERMS_REF, ctx);
-        
+        pactda::create_contract(
+            option::some(PARTY_B),
+            string::utf8(b"Test Contract"),
+            option::some(0u8),  // contract_type: Option<u8>
+            option::some(b"Terms for test contract"), // terms_reference: Option<vector<u8>> (already correct)
+            option::some(1000u64), // contract_start_date: Option<u64>
+            option::some(2000u64), // contract_deadline_date: Option<u64>
+            option::none(), // metadata
+            ctx);             
         // Try to update status on a contract that's still PENDING
         next_tx(&mut scenario, PARTY_A);
         {
