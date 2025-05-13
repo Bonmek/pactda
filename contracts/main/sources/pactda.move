@@ -663,6 +663,7 @@ module pactda::pactda;
 
         contract.dispute_info = option::some(DisputeInfo {
             disputed_milestone_id: option::some(milestone_id),
+            assigned_verifiers: option::none(),
             initiator: sender,
             reason_hash: option::some(reason_hash),
             outcome: option::none(),
