@@ -2,7 +2,7 @@
 name = "PactDa"
 version = "0.2.0"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x211ee8342ef2f37f154921ffd7697e15df6c45f27b522d270aa94090d54d1129"
+published-at = "0xc7a5f6ab5a4af142dac792d404e0d0aac30e7940f16672dc78bf733304e8e88a"
 # license = ""           # e.g., "MIT", "GPL", "Apache 2.0"
 # authors = ["..."]      # e.g., ["Joe Smith (joesmith@noemail.com)", "John Snow (johnsnow@noemail.com)"]
 
@@ -10,7 +10,7 @@ published-at = "0x211ee8342ef2f37f154921ffd7697e15df6c45f27b522d270aa94090d54d11
 Wormhole = { local = "../../../wormhole/sui/wormhole" }
 
 [addresses]
-pactda = "0x0"
+pactda = "0xc7a5f6ab5a4af142dac792d404e0d0aac30e7940f16672dc78bf733304e8e88a"
 wormhole = "0xf47329f4344f3bf0f8e436e2f7b485466cff300f12a166563995d3888c296a94"
 
 [dev-dependencies]
