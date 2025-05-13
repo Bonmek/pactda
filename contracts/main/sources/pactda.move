@@ -275,7 +275,7 @@ module pactda::pactda;
     ) {
         let sender = tx_context::sender(ctx);
         assert!(sender == contract.party_a, EUnauthorized);
-        assert!(contract.status == CONTRACT_STATUS_PENDING, EInvalidStatus);
+        assert!(contract.status == CONTRACT_STATUS_PENDING || contract.status == CONTRACT_STATUS_DRAFT, EInvalidStatus);
         if (option::is_some(&title)) {
             contract.title = option::extract(&mut title);
         };
@@ -388,7 +388,7 @@ module pactda::pactda;
     ) {
         let sender = tx_context::sender(ctx);
         assert!(sender == contract.party_a || sender == contract.party_b , EUnauthorized);
-        assert!(contract.status == CONTRACT_STATUS_PENDING, EInvalidStatus);
+        assert!(contract.status == CONTRACT_STATUS_PENDING || contract.status == CONTRACT_STATUS_DRAFT, EInvalidStatus);
         contract.status = CONTRACT_STATUS_CANCELLED;
         create_receipt(object::id_address(contract), string::utf8(b"contract_denied"), ctx);
     }
@@ -450,7 +450,10 @@ module pactda::pactda;
     ) {
         let sender = tx_context::sender(ctx);
         assert!(sender == contract.party_a, EUnauthorized);
-        assert!(contract.status == CONTRACT_STATUS_PENDING, EInvalidStatus);
+        assert!(contract.party_a != @0x0, EUnauthorized);
+        assert!(contract.status == CONTRACT_STATUS_PENDING || contract.status == CONTRACT_STATUS_DRAFT, EInvalidStatus);
+        assert!(!contract.is_party_a_signed, EInvalidStatus);
+
         contract.is_party_a_signed = true;
 
         if (contract.is_party_a_signed && contract.is_party_b_signed) {
@@ -473,6 +476,7 @@ module pactda::pactda;
         assert!(contract.party_b != @0x0, EUnauthorized);
         assert!(contract.status == CONTRACT_STATUS_PENDING, EInvalidStatus);
         contract.is_party_b_signed = true;
+
 
         if (contract.is_party_a_signed && contract.is_party_b_signed) {
             contract.status = CONTRACT_STATUS_ACTIVE;

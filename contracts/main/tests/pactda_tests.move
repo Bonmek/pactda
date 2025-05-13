@@ -29,6 +29,7 @@ module pactda::pactda_tests {
         // Note: Other error codes used previously might not exist or apply anymore.
     };
     use pactda::pactda::get_contract_status_cancelled;
+    use std::debug;
 
     // === Test Constants ===
     const PARTY_A: address = @0xA; // Renamed from CLIENT
@@ -161,12 +162,10 @@ module pactda::pactda_tests {
             );
         };
 
-        // Verify contract was created with cross-chain party
+        next_tx(&mut scenario, PARTY_A); // Party A submits the contract
         let contract = get_contract_mut(&mut scenario);
         assert!(pactda::get_party_a(&contract) == PARTY_A, 0);
-        // Party B on-chain address should be @0x0 for cross-chain contracts
         assert!(pactda::get_party_b(&contract) == @0x0, 1);
-        // Status should be DRAFT after creation
         assert!(pactda::get_status(&contract) == pactda::get_contract_status_draft(), 2);
 
         return_contract(&mut scenario, contract);
@@ -384,7 +383,6 @@ module pactda::pactda_tests {
         let ctx_a_ops = test::ctx(&mut scenario);
 
         // Party A signs (contract is DRAFT)
-        pactda::submit_contract(&mut contract_a_ops, ctx_a_ops);
         pactda::sign_contract_party_a(&mut contract_a_ops, ctx_a_ops);
         assert!(pactda::is_party_a_signed(&contract_a_ops), 0);
         assert!(!pactda::is_party_b_signed(&contract_a_ops), 1);
@@ -458,8 +456,8 @@ module pactda::pactda_tests {
                 option::none(), // metadata
                 ctx);     
         };
+        
         next_tx(&mut scenario, PARTY_A);
-
         let mut contract = get_contract_mut(&mut scenario);
         
         {
@@ -578,6 +576,7 @@ module pactda::pactda_tests {
         {
             let ctx = test::ctx(&mut scenario);
             pactda::sign_contract_party_a(&mut contract, ctx);
+            pactda::submit_contract(&mut contract, ctx);
         };
         return_contract(&mut scenario, contract);
         
@@ -633,6 +632,7 @@ module pactda::pactda_tests {
             let ctx = test::ctx(&mut scenario);
             pactda::add_milestones(&mut contract, description_hashes, values, ctx);
             pactda::sign_contract_party_a(&mut contract, ctx);
+            pactda::submit_contract(&mut contract, ctx);
         };
         return_contract(&mut scenario, contract);
         
@@ -686,6 +686,7 @@ module pactda::pactda_tests {
         let values = vector[100u64];
         pactda::add_milestones(&mut contract, description_hashes, values, ctx);
         pactda::sign_contract_party_a(&mut contract, ctx);
+        pactda::submit_contract(&mut contract, ctx);
         return_contract(&mut scenario, contract);
         
         next_tx(&mut scenario, PARTY_B);
@@ -862,10 +863,13 @@ module pactda::pactda_tests {
 
             pactda::update_contract(
                 &mut contract,
+                option::some(1),
+                option::some(b"asdasd"),
+                option::some(PARTY_B),
                 option::some(string::utf8(b"Updated Title")),
                 option::some(b"Updated Terms"), // Changed to Option<vector<u8>>
-                option::some(1500u64),          // Added u64 suffix
-                option::some(2500u64),          // Added u64 suffix
+                option::some(1500u64),          
+                option::some(2500u64),        
                 option::some(b"metadata"),
                 ctx
             );

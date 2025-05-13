@@ -2,7 +2,6 @@
 module pactda::pactda_bridge_integration_tests {
     // Standard Library Imports
     use std::string::{Self, String};
-
     // Sui Framework Imports
     use sui::test_scenario::{Self as test, Scenario, next_tx};
     use sui::object::{Self, ID};
@@ -134,6 +133,8 @@ module pactda::pactda_bridge_integration_tests {
         {
             let mut contract = test::take_shared<PactDaContract>(&mut scenario);
             let ctx = test::ctx(&mut scenario);
+
+
             pactda::submit_proof(&mut contract, 0, PROOF_REF, ctx);
             
             // Verify milestone is submitted
@@ -209,7 +210,7 @@ module pactda::pactda_bridge_integration_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let contract = test::take_shared<PactDaContract>(&mut scenario);
-            assert!(get_status(&contract) == CONTRACT_STATUS_ACTIVE, 0);
+            assert!(get_status(&contract) == pactda::get_contract_status_active(), 0);
             test::return_shared(contract);
         };
 
@@ -218,10 +219,10 @@ module pactda::pactda_bridge_integration_tests {
         {
             let mut contract = test::take_shared<PactDaContract>(&mut scenario);
             let ctx = test::ctx(&mut scenario);
-            pactda::update_status_from_bridge(&mut contract, CONTRACT_STATUS_COMPLETED, ctx);
+            pactda::update_status_from_bridge(&mut contract, pactda::get_contract_status_completed(), ctx);
             
             // Verify status was updated
-            assert!(get_status(&contract) == CONTRACT_STATUS_COMPLETED, 1);
+            assert!(get_status(&contract) == pactda::get_contract_status_completed(), 1);
             
             test::return_shared(contract);
         };
