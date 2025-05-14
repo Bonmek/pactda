@@ -28,7 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SuiClientProvider networks={networks} defaultNetwork="testnet">
-        <WalletProvider>
+        <WalletProvider  autoConnect={true}>
           <WagmiProvider config={wagmiConfig}>
             <AuthProvider>{children}</AuthProvider>
           </WagmiProvider>
