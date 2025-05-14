@@ -871,6 +871,7 @@ module pactda::pactda_tests {
                 option::some(1500u64),          
                 option::some(2500u64),        
                 option::some(b"metadata"),
+                option::none(),
                 ctx
             );
 

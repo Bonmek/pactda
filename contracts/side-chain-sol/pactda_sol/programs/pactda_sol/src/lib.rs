@@ -11,6 +11,7 @@ const WORMHOLE_CORE_BRIDGE_PID: &str = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNM
 pub mod solana_actions {
     pub const INITIALIZE_STUB: u8 = 0;
     pub const UPDATE_DISPLAY_STATUS: u8 = 1;
+    pub const UPDATE_STUB_DETAILS: u8 = 2; // New action for updating details
 }
 
 // Action types for messages sent FROM Solana TO Sui (emitted in event)
@@ -44,6 +45,14 @@ pub mod pactda_sol {
         stub.description = description;
         stub.pactda_url = pactda_url;
         stub.display_status = "Initialized on Solana (Direct)".to_string();
+        
+        // Initialize new optional fields
+        stub.terms_reference = None;
+        stub.contract_start_date = None;
+        stub.contract_deadline_date = None;
+        stub.metadata = None;
+        stub.contract_type = None;
+        
         stub.bump = ctx.bumps.pact_da_stub;
 
         msg!(
@@ -129,21 +138,20 @@ pub mod pactda_sol {
     /// Initializes a PactDaSolStub based on a VAA from Sui.
     pub fn initialize_stub_from_vaa(
         ctx: Context<InitializeStubFromVaa>,
-        _vaa_hash: [u8; 32], // For wormhole_message constraint
-        // Payload fields are now part of the instruction arguments,
-        // implying relayer deserializes them or they are part of a single payload struct arg.
-        // For on-chain deserialization, pass `vaa_payload_bytes: Vec<u8>`
-        // For relayer-deserialized, pass individual fields:
+        _vaa_hash: [u8; 32], // Used by SharedVaaAccounts
         target_solana_stub_id: u64,
         sui_contract_identifier: String,
         title: String,
         description: String,
         pactda_url: String,
-        party_b_solana_address: Pubkey, // This is the stub.initiator
+        party_b_solana_address: Pubkey,
+        // New optional fields from Sui, passed by relayer
+        terms_reference: Option<String>,
+        contract_start_date: Option<u64>,
+        contract_deadline_date: Option<u64>,
+        metadata: Option<String>,
+        contract_type: Option<u8>,
     ) -> Result<()> {
-        // VAA verification is implicitly handled by wormhole_message account constraints.
-        // If `vaa_payload_bytes` were passed, deserialize `InitializeStubFromSuiPayload` here.
-
         let stub = &mut ctx.accounts.pact_da_stub;
         stub.initiator = party_b_solana_address;
         stub.solana_stub_id = target_solana_stub_id;
@@ -152,6 +160,14 @@ pub mod pactda_sol {
         stub.description = description;
         stub.pactda_url = pactda_url;
         stub.display_status = "Initialized from Sui VAA".to_string();
+        
+        // Set new optional fields
+        stub.terms_reference = terms_reference;
+        stub.contract_start_date = contract_start_date;
+        stub.contract_deadline_date = contract_deadline_date;
+        stub.metadata = metadata;
+        stub.contract_type = contract_type;
+
         stub.bump = ctx.bumps.pact_da_stub;
 
         msg!(
@@ -182,6 +198,49 @@ pub mod pactda_sol {
             "Solana Stub ID {} display status updated from Sui VAA to: {}",
             stub.solana_stub_id,
             stub.display_status
+        );
+        Ok(())
+    }
+
+    /// Updates various details of a PactDaSolStub based on a VAA from Sui.
+    pub fn update_stub_details_from_vaa(
+        ctx: Context<UpdateStubDetailsFromVaa>,
+        _vaa_hash: [u8; 32], // Used by SharedVaaAccounts
+        _target_solana_stub_id: u64, // Used for constraint in Accounts struct
+        new_title: Option<String>,
+        new_terms_reference: Option<String>,
+        new_contract_start_date: Option<u64>,
+        new_contract_deadline_date: Option<u64>,
+        new_metadata: Option<String>,
+        new_contract_type: Option<u8>,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+
+        if let Some(title_val) = new_title { 
+            stub.title = title_val; // stub.title is String, not Option<String>
+        }
+        
+        // Update Option fields only if a Some value is explicitly passed.
+        // If the instruction argument is None, the existing value in the stub is preserved.
+        if new_terms_reference.is_some() {
+             stub.terms_reference = new_terms_reference;
+        }
+        if new_contract_start_date.is_some() {
+            stub.contract_start_date = new_contract_start_date;
+        }
+        if new_contract_deadline_date.is_some() {
+            stub.contract_deadline_date = new_contract_deadline_date;
+        }
+        if new_metadata.is_some() {
+            stub.metadata = new_metadata;
+        }
+        if new_contract_type.is_some() {
+            stub.contract_type = new_contract_type;
+        }
+        
+        msg!(
+            "Solana Stub ID {} details updated from Sui VAA.",
+            stub.solana_stub_id
         );
         Ok(())
     }
@@ -252,7 +311,13 @@ pub struct SharedVaaAccounts<'info> {
     title: String, // From VAA payload
     description: String, // From VAA payload
     pactda_url: String, // From VAA payload
-    party_b_solana_address: Pubkey // From VAA payload, becomes initiator
+    party_b_solana_address: Pubkey, // From VAA payload, becomes initiator
+    // Add new optional fields to instruction context
+    terms_reference: Option<String>, 
+    contract_start_date: Option<u64>, 
+    contract_deadline_date: Option<u64>, 
+    metadata: Option<String>, 
+    contract_type: Option<u8> 
 )]
 pub struct InitializeStubFromVaa<'info> {
     // Inherit common VAA processing accounts
@@ -284,6 +349,34 @@ pub struct UpdateStubStatusFromVaa<'info> {
         seeds = [
             b"pactda_stub_v1",
             pact_da_stub.initiator.as_ref(), // Use stored initiator for finding the stub
+            target_solana_stub_id.to_le_bytes().as_ref()
+        ],
+        bump = pact_da_stub.bump,
+        constraint = pact_da_stub.solana_stub_id == target_solana_stub_id @ PactDaError::StubIdMismatch
+    )]
+    pub pact_da_stub: Account<'info, PactDaSolStub>,
+}
+
+// New Accounts struct for updating details from VAA
+#[derive(Accounts)]
+#[instruction(
+    vaa_hash: [u8; 32], 
+    target_solana_stub_id: u64, 
+    // Optional fields for update
+    new_title: Option<String>,
+    new_terms_reference: Option<String>,
+    new_contract_start_date: Option<u64>,
+    new_contract_deadline_date: Option<u64>,
+    new_metadata: Option<String>,
+    new_contract_type: Option<u8>
+)]
+pub struct UpdateStubDetailsFromVaa<'info> {
+    pub shared_vaa_accounts: SharedVaaAccounts<'info>,
+    #[account(
+        mut,
+        seeds = [
+            b"pactda_stub_v1",
+            pact_da_stub.initiator.as_ref(),
             target_solana_stub_id.to_le_bytes().as_ref()
         ],
         bump = pact_da_stub.bump,
@@ -328,16 +421,40 @@ pub struct ProcessVaaFromSui<'info> {
 pub struct PactDaSolStub {
     pub initiator: Pubkey,
     pub solana_stub_id: u64,
-    pub sui_contract_identifier: String,
-    pub title: String,
-    pub description: String,
-    pub pactda_url: String,
-    pub display_status: String,
+    pub sui_contract_identifier: String, // Max 70 chars
+    pub title: String,                   // Max 100 chars
+    pub description: String,             // Max 250 chars 
+    pub pactda_url: String,              // Max 120 chars 
+    pub display_status: String,          // Max 100 chars
+
+    // New optional fields
+    pub terms_reference: Option<String>,    // Max 100 chars if Some
+    pub contract_start_date: Option<u64>,
+    pub contract_deadline_date: Option<u64>,
+    pub metadata: Option<String>,           // Max 200 chars if Some 
+    pub contract_type: Option<u8>,
+
     pub bump: u8,
 }
 
 impl PactDaSolStub {
-    const MAX_SIZE: usize = 8 + 32 + 8 + (4 + 70) + (4 + 100) + (4 + 250) + (4 + 120) + (4 + 100) + 1; // Adjusted lengths
+    // Recalculated MAX_SIZE:
+    // Discriminator: 8
+    // initiator: 32
+    // solana_stub_id: 8
+    // sui_contract_identifier: String (4 + 70) = 74
+    // title: String (4 + 100) = 104
+    // description: String (4 + 250) = 254 (Retained existing field, consider if it should be part of new metadata field)
+    // pactda_url: String (4 + 120) = 124 (Retained existing field, consider if it should be part of new metadata field)
+    // display_status: String (4 + 100) = 104
+    // terms_reference: Option<String> (1 + (4 + 100 if Some)) = 105
+    // contract_start_date: Option<u64> (1 + 8 if Some) = 9
+    // contract_deadline_date: Option<u64> (1 + 8 if Some) = 9
+    // metadata: Option<String> (1 + (4 + 200 if Some)) = 205
+    // contract_type: Option<u8> (1 + 1 if Some) = 2
+    // bump: 1
+    // Total: 8 + 32 + 8 + 74 + 104 + 254 + 124 + 104 + 105 + 9 + 9 + 205 + 2 + 1 = 1039
+    const MAX_SIZE: usize = 1039; 
 }
 
 // --- Events ---

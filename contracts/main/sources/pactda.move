@@ -271,6 +271,7 @@ module pactda::pactda;
         contract_start_date: Option<u64>,
         contract_deadline_date: Option<u64>,
         metadata: Option<vector<u8>>,
+        mut contract_type: Option<u8>, // Added contract_type
         ctx: &mut TxContext,
     ) {
         let sender = tx_context::sender(ctx);
@@ -290,6 +291,9 @@ module pactda::pactda;
         };
         if (option::is_some(&metadata)) {
             contract.metadata = metadata;
+        };
+        if (option::is_some(&contract_type)) { // Added logic for contract_type
+            contract.contract_type = option::extract(&mut contract_type);
         };
 
         if (option::is_some(&party_b)) {
@@ -882,6 +886,68 @@ module pactda::pactda;
         };
     }
 
+    public(package) fun update_details_from_bridge( // Changed visibility and parameters
+        contract: &mut PactDaContract,
+        mut title_option: Option<vector<u8>>,
+        mut terms_reference_option: Option<vector<u8>>,
+        contract_start_date_option: Option<u64>,
+        contract_deadline_date_option: Option<u64>,
+        metadata_option: Option<vector<u8>>,
+        mut contract_type_option: Option<u8>,
+        ctx: &mut TxContext
+    ) {
+        assert!(
+            contract.status == CONTRACT_STATUS_PENDING ||
+            contract.status == CONTRACT_STATUS_ACTIVE ||
+            contract.status == CONTRACT_STATUS_DRAFT,
+            EInvalidStatus
+        );
+
+        if (option::is_some(&title_option)) {
+            contract.title = string::utf8(option::extract(&mut title_option));
+        };
+        if (option::is_some(&terms_reference_option)) {
+            contract.terms_reference = option::extract(&mut terms_reference_option);
+        };
+        if (option::is_some(&contract_start_date_option)) {
+            contract.contract_start_date = contract_start_date_option;
+        };
+        if (option::is_some(&contract_deadline_date_option)) {
+            contract.contract_deadline_date = contract_deadline_date_option;
+        };
+        if (option::is_some(&metadata_option)) {
+            contract.metadata = metadata_option;
+        };
+        if (option::is_some(&contract_type_option)) {
+            contract.contract_type = option::extract(&mut contract_type_option);
+        };
+
+        create_receipt(object::id_address(contract), string::utf8(b"details_updated_from_bridge"), ctx);
+    }
+
+    public(package) fun submit_proof_from_bridge( // Changed visibility
+        contract: &mut PactDaContract,
+        milestone_id: u64,
+        proof_reference_bytes: vector<u8>,
+        ctx: &mut TxContext
+    ) {
+        // Similar to `submit_proof` but called by the bridge.
+        // No explicit sender check here (party_b check) as authorization is via bridge.
+        assert!(contract.status == CONTRACT_STATUS_ACTIVE, EInvalidStatus);
+        assert!(option::is_some(&contract.milestones), EInvalidMilestone);
+
+        let milestones = option::borrow_mut(&mut contract.milestones);
+        assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
+
+        let milestone = vector::borrow_mut(milestones, milestone_id);
+        assert!(milestone.status == MILESTONE_STATUS_PENDING, EInvalidStatus);
+
+        milestone.status = MILESTONE_STATUS_SUBMITTED;
+        milestone.proof_reference = option::some(proof_reference_bytes);
+
+        create_receipt(object::id_address(contract), string::utf8(b"proof_submitted_from_bridge"), ctx);
+    }
+
     // === Test Helpers - Constants ===
     #[test_only]
     public fun get_contract_status_pending(): u8 {
@@ -940,6 +1006,26 @@ module pactda::pactda;
     #[test_only]
     public fun get_terms_reference_test_only(contract: &PactDaContract): &vector<u8> {
         &contract.terms_reference
+    }
+
+    #[test_only]
+    public fun get_contract_start_date_test_only(contract: &PactDaContract): &Option<u64> {
+        &contract.contract_start_date
+    }
+
+    #[test_only]
+    public fun get_contract_deadline_date_test_only(contract: &PactDaContract): &Option<u64> {
+        &contract.contract_deadline_date
+    }
+
+    #[test_only]
+    public fun get_metadata_test_only(contract: &PactDaContract): &Option<vector<u8>> {
+        &contract.metadata
+    }
+
+    #[test_only]
+    public fun get_contract_type_test_only(contract: &PactDaContract): u8 {
+        contract.contract_type
     }
 
     #[test_only]

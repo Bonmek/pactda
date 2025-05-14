@@ -11,14 +11,14 @@ module pactda::pactda_wormhole_bridge;
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
     use sui::table::{Self, Table};
-    use sui::coin::{Self, Coin}; // Removed unused Coin/SUI imports
     use sui::event;
     use sui::clock::{Self, Clock};
-    use sui::sui::SUI;
+    // Removed unused sui::coin and sui::sui imports
 
     // Standard Library Imports
     use std::vector;
-    // use std::string::{Self, String}; // String not currently used
+    use std::string::{Self, String};
+    use std::option::{Self, Option}; // Added import for Option
 
     // Wormhole Core Imports
     use wormhole::emitter::{Self, EmitterCap};
@@ -46,6 +46,9 @@ module pactda::pactda_wormhole_bridge;
     /// Error code for receiving a VAA from an emitter not registered for the source chain.
     const E_UNAUTHORIZED_MESSENGER: u64 = 5;
 
+    /// Expected length of a foreign contract identifier (e.g., 32-byte address).
+    const FOREIGN_CONTRACT_ID_LENGTH: u64 = 32;
+
     // Wormhole Chain IDs (Reference)
     // const CHAIN_ID_ETH: u16 = 2;
     // const CHAIN_ID_BSC: u16 = 4;
@@ -63,6 +66,14 @@ module pactda::pactda_wormhole_bridge;
     const ACTION_CONTRACT_STATUS_UPDATE: u8 = 3;
     /// Action type identifier for updating escrow status via cross-chain message.
     const ACTION_ESCROW_STATUS_UPDATE: u8 = 4;
+    /// Action type identifier for a cross-chain party B signing the contract.
+    const ACTION_SIGN_CONTRACT_PARTY_B: u8 = 5;
+    /// Action type identifier for updating contract details (e.g., title, terms) via cross-chain message.
+    const ACTION_UPDATE_CONTRACT_DETAILS: u8 = 6;
+    /// Action type identifier for submitting proof for a milestone via cross-chain message.
+    const ACTION_SUBMIT_PROOF_PARTY_B: u8 = 7;
+    /// Action type identifier for creating a contract stub on a side chain (outgoing message).
+    const ACTION_CREATE_SIDE_CHAIN_STUB: u8 = 8; // For outgoing message to create stub
 
     // === Structs ===
 
@@ -92,6 +103,17 @@ module pactda::pactda_wormhole_bridge;
         /// The source chain ID from the VAA header.
         source_chain: u16,
         // Consider adding source_address (vector<u8>) if needed for off-chain queries.
+    }
+
+    /// Represents the data that can be updated for a contract via a cross-chain message.
+    /// Used as an argument when preparing an outgoing message to update contract details.
+    public struct ContractUpdateData has drop {
+        title: Option<String>,
+        terms_reference: Option<String>,
+        contract_start_date: Option<u64>,
+        contract_deadline_date: Option<u64>,
+        metadata: Option<vector<u8>>, // Metadata is typically raw bytes
+        contract_type: Option<u8>
     }
 
     // === Events ===
@@ -134,6 +156,46 @@ module pactda::pactda_wormhole_bridge;
         chain_id: u16,
         /// Address of the foreign contract (typically 32 bytes).
         contract_address: vector<u8>
+    }
+
+    /// Emitted when Party B signs the contract based on a cross-chain message.
+    public struct ContractSignedPartyBCrossChain has copy, drop {
+        /// Sui address of the target PactDa contract.
+        contract_address: address,
+        /// Wormhole chain ID of the source chain that initiated the signing.
+        source_chain: u16
+    }
+
+    /// Emitted when contract details are updated based on a cross-chain message.
+    public struct ContractDetailsUpdatedCrossChain has copy, drop {
+        /// Sui address of the target PactDa contract.
+        contract_address: address,
+        /// Wormhole chain ID of the source chain that initiated the update.
+        source_chain: u16
+        // Consider adding fields for what was updated if needed for off-chain indexing.
+    }
+
+    /// Emitted when proof for a milestone is submitted by Party B based on a cross-chain message.
+    public struct ProofSubmittedPartyBCrossChain has copy, drop {
+        /// Sui address of the target PactDa contract.
+        contract_address: address,
+        /// ID of the milestone for which proof was submitted.
+        milestone_id: u64,
+        /// Wormhole chain ID of the source chain that initiated the proof submission.
+        source_chain: u16
+        // proof_reference could be included if it's small enough and useful for events.
+    }
+
+    /// Emitted when a request to create a side-chain contract stub is sent.
+    public struct SideChainStubCreationRequested has copy, drop {
+        /// Sui ID of the PactDa contract for which the stub is requested.
+        sui_contract_id: ID,
+        /// Target Wormhole chain ID for the stub creation.
+        target_chain: u16,
+        /// Title of the contract.
+        title: vector<u8>, // Using vector<u8> for string to be generic
+        /// Terms reference of the contract.
+        terms_reference: vector<u8>
     }
 
     // === Initialization ===
@@ -263,6 +325,116 @@ module pactda::pactda_wormhole_bridge;
         // The MessageTicket is returned directly.
      }
 
+    /// Prepares a message to request the creation of a contract stub on a foreign chain.
+    /// This is typically called when a contract is created or submitted for review on Sui,
+    /// to notify the other chain.
+    /// Returns a `MessageTicket` to be published via Wormhole.
+    ///
+    /// Arguments:
+    /// - `bridge`: Mutable reference to the `PactDaBridge` state.
+    /// - `target_chain`: The Wormhole chain ID of the destination chain.
+    /// - `sui_contract_id`: The Sui Object ID of the `PactDaContract`.
+    /// - `title`: The title of the contract.
+    /// - `terms_reference`: The terms reference (e.g., IPFS hash) for the contract.
+    /// - `_ctx`: Transaction context (currently unused).
+    public fun send_create_stub_message(
+        bridge: &mut PactDaBridge,
+        target_chain: u16,
+        sui_contract_id: ID,
+        title: String,
+        terms_reference: String,
+        _ctx: &mut TxContext // Mark unused
+    ): MessageTicket {
+        // Pre-flight check: Ensure the target chain has a registered contract (optional,
+        // as stub creation might not require a full contract on the other side yet,
+        // but good practice if messages are directed to a specific bridge/handler).
+        // For now, let's assume it's good to check.
+        assert!(table::contains(&bridge.registered_contracts, target_chain), E_INVALID_CHAIN_ID);
+
+        // Serialize the action-specific data.
+        let sui_contract_id_bytes = object::id_to_bytes(&sui_contract_id);
+        let title_bytes = string::bytes(&title);
+        let terms_bytes = string::bytes(&terms_reference);
+
+        let payload = serialize_create_side_chain_stub(
+            sui_contract_id_bytes,
+            *title_bytes,
+            *terms_bytes
+        );
+
+        // Emit event
+        event::emit(SideChainStubCreationRequested {
+            sui_contract_id,
+            target_chain,
+            title: *title_bytes, // Event stores bytes
+            terms_reference: *terms_bytes // Event stores bytes
+        });
+
+        // Use the internal helper to prepare the Wormhole message ticket.
+        prepare_wormhole_message(
+            bridge,
+            ACTION_CREATE_SIDE_CHAIN_STUB,
+            payload
+        )
+        // The MessageTicket is returned directly.
+    }
+
+    /// Prepares a message to indicate Party B has signed the contract on a foreign chain.
+    /// Returns a `MessageTicket` to be published via Wormhole.
+    public fun sign_contract_party_b_cross_chain(
+        bridge: &mut PactDaBridge,
+        target_chain: u16,
+        target_contract_id: vector<u8>, // Identifier for the contract on the target chain
+        _ctx: &mut TxContext
+    ): MessageTicket {
+        assert!(table::contains(&bridge.registered_contracts, target_chain), E_INVALID_CHAIN_ID);
+        let payload = serialize_sign_contract_party_b(target_contract_id);
+        prepare_wormhole_message(
+            bridge,
+            ACTION_SIGN_CONTRACT_PARTY_B,
+            payload
+        )
+    }
+
+    /// Prepares a message to update contract details (title, terms) on a foreign chain.
+    /// Returns a `MessageTicket` to be published via Wormhole.
+    public fun update_contract_details_cross_chain(
+        bridge: &mut PactDaBridge,
+        target_chain: u16,
+        target_contract_id: vector<u8>,
+        update_data: ContractUpdateData, // Changed to use ContractUpdateData
+        _ctx: &mut TxContext
+    ): MessageTicket {
+        assert!(table::contains(&bridge.registered_contracts, target_chain), E_INVALID_CHAIN_ID);
+        // Call the new serialization function that handles optional fields
+        let payload = serialize_optional_contract_details(target_contract_id, &update_data);
+        prepare_wormhole_message(
+            bridge,
+            ACTION_UPDATE_CONTRACT_DETAILS,
+            payload
+        )
+    }
+
+    /// Prepares a message for Party B to submit proof for a milestone on a foreign chain.
+    /// Returns a `MessageTicket` to be published via Wormhole.
+    public fun submit_proof_party_b_cross_chain(
+        bridge: &mut PactDaBridge,
+        target_chain: u16,
+        target_contract_id: vector<u8>,
+        milestone_id: u64,
+        proof_reference: String, // Use String for user-friendliness
+        _ctx: &mut TxContext
+    ): MessageTicket {
+        assert!(table::contains(&bridge.registered_contracts, target_chain), E_INVALID_CHAIN_ID);
+        let proof_bytes = string::bytes(&proof_reference);
+        let payload = serialize_submit_proof_party_b(target_contract_id, milestone_id, *proof_bytes);
+        prepare_wormhole_message(
+            bridge,
+            ACTION_SUBMIT_PROOF_PARTY_B,
+            payload
+        )
+    }
+
      // === Incoming Cross-Chain Messages ===
 
      /// Processes a verified Wormhole message (VAA) received from a registered foreign contract.
@@ -338,6 +510,12 @@ module pactda::pactda_wormhole_bridge;
              handle_contract_status_update(target_contract, action_payload, emitter_chain, emitter_address_external, ctx);
          } else if (action_type == ACTION_ESCROW_STATUS_UPDATE) {
              handle_escrow_status_update(target_contract, action_payload, emitter_chain, emitter_address_external, ctx);
+         } else if (action_type == ACTION_SIGN_CONTRACT_PARTY_B) {
+            handle_sign_contract_party_b(target_contract, action_payload, emitter_chain, emitter_address_external, ctx);
+         } else if (action_type == ACTION_UPDATE_CONTRACT_DETAILS) {
+            handle_update_contract_details(target_contract, action_payload, emitter_chain, emitter_address_external, ctx);
+         } else if (action_type == ACTION_SUBMIT_PROOF_PARTY_B) {
+            handle_submit_proof_party_b(target_contract, action_payload, emitter_chain, emitter_address_external, ctx);
          } else {
             // Abort if the action type is not recognized.
             abort E_INVALID_ACTION
@@ -385,7 +563,42 @@ module pactda::pactda_wormhole_bridge;
          // The MessageTicket is returned.
      }
  
-     // === Serialization Helpers ===
+    // === Serialization Helpers ===
+
+    // Presence mask bits for optional fields in contract details update
+    const PRESENCE_TITLE: u8 = 1; // 00000001
+    const PRESENCE_TERMS_REFERENCE: u8 = 2; // 00000010
+    const PRESENCE_CONTRACT_START_DATE: u8 = 4; // 00000100
+    const PRESENCE_CONTRACT_DEADLINE_DATE: u8 = 8; // 00001000
+    const PRESENCE_METADATA: u8 = 16; // 00010000
+    const PRESENCE_CONTRACT_TYPE: u8 = 32; // 00100000
+
+    /// Appends a u64 value to a byte vector in big-endian format.
+    fun append_u64_big_endian(payload: &mut vector<u8>, value: u64) {
+        let mut i = 0;
+        while (i < 8) {
+            let byte = ((value >> (8 * (7 - i))) & 0xFF) as u8;
+            vector::push_back(payload, byte);
+            i = i + 1;
+        };
+    }
+
+    /// Appends a vector<u8> (like a string's bytes) to the payload, prefixed with its length as u8.
+    fun append_vec_u8_with_u8_len(payload: &mut vector<u8>, data: &vector<u8>) {
+        let len = vector::length(data);
+        assert!(len <= 255, E_INVALID_ACTION); // Max u8
+        vector::push_back(payload, len as u8);
+        vector::append(payload, *data);
+    }
+
+    /// Appends a vector<u8> (like a string's bytes or metadata) to the payload, prefixed with its length as u16 (big-endian).
+    fun append_vec_u8_with_u16_len(payload: &mut vector<u8>, data: &vector<u8>) {
+        let len = vector::length(data);
+        assert!(len <= 65535, E_INVALID_ACTION); // Max u16
+        vector::push_back(payload, (len >> 8) as u8); // High byte
+        vector::push_back(payload, (len & 0xFF) as u8); // Low byte
+        vector::append(payload, *data);
+    }
 
     /// Serializes the data required for a cross-chain milestone approval message.
     /// Payload format: `[target_contract_id (bytes)] [milestone_id (u64 big-endian)]`
@@ -423,6 +636,146 @@ module pactda::pactda_wormhole_bridge;
         payload
     }
 
+    /// Serializes the data required for creating a side-chain contract stub.
+    /// Payload format: `[sui_contract_id (32 bytes)] [title_len (u8)] [title (bytes)] [terms_len (u16)] [terms_reference (bytes)]`
+    /// Note: sui_contract_id is the ID of the contract on Sui, not the target_contract_id on the foreign chain.
+    fun serialize_create_side_chain_stub(
+        sui_contract_id_bytes: vector<u8>, // Should be 32 bytes from ID::to_bytes
+        title: vector<u8>,
+        terms_reference: vector<u8>
+    ): vector<u8> {
+        let mut payload = vector::empty<u8>();
+
+        // Append Sui Contract ID (32 bytes)
+        assert!(vector::length(&sui_contract_id_bytes) == 32, E_INVALID_CONTRACT_ADDRESS); // Assuming ID::to_bytes gives 32 bytes
+        vector::append(&mut payload, sui_contract_id_bytes);
+
+        // Append title length (u8) and title
+        let title_len = vector::length(&title);
+        assert!(title_len <= 255, E_INVALID_ACTION); // Max u8
+        vector::push_back(&mut payload, title_len as u8);
+        vector::append(&mut payload, title);
+
+        // Append terms_reference length (u16 big-endian) and terms_reference
+        let terms_len = vector::length(&terms_reference);
+        assert!(terms_len <= 65535, E_INVALID_ACTION); // Max u16
+        vector::push_back(&mut payload, (terms_len >> 8) as u8); // High byte
+        vector::push_back(&mut payload, (terms_len & 0xFF) as u8); // Low byte
+        vector::append(&mut payload, terms_reference);
+
+        payload
+    }
+
+    /// Serializes the data for a Party B signing action.
+    /// Payload format: `[target_contract_id (bytes)]`
+    /// (Optionally, could include party B's signature or identifier if needed for the target chain)
+    fun serialize_sign_contract_party_b(target_contract_id: vector<u8>): vector<u8> {
+        let mut payload = vector::empty<u8>();
+        // Append target contract identifier.
+        vector::append(&mut payload, target_contract_id);
+        payload
+    }
+
+    /// Serializes the data for updating contract details, handling optional fields.
+    /// Payload format: `[target_contract_id (32b)] [presence_mask (u8)] [optional_fields_data...]`
+    /// Optional fields data (if present, in order of presence_mask bits):
+    /// 1. title: `[len (u8)] [bytes]`
+    /// 2. terms_reference: `[len (u16)] [bytes]`
+    /// 3. contract_start_date: `[u64]`
+    /// 4. contract_deadline_date: `[u64]`
+    /// 5. metadata: `[len (u16)] [bytes]`
+    /// 6. contract_type: `[u8]`
+    fun serialize_optional_contract_details(
+        target_contract_id: vector<u8>,
+        update_data: &ContractUpdateData
+    ): vector<u8> {
+        let mut presence_mask = 0u8;
+        let mut optional_payload_part = vector::empty<u8>();
+
+        // Title (Optional<String>)
+        if (option::is_some(&update_data.title)) {
+            presence_mask = presence_mask | PRESENCE_TITLE;
+            let title_str_ref = option::borrow(&update_data.title);
+            let title_bytes = string::bytes(title_str_ref);
+            append_vec_u8_with_u8_len(&mut optional_payload_part, title_bytes);
+        };
+
+        // Terms Reference (Optional<String>)
+        if (option::is_some(&update_data.terms_reference)) {
+            presence_mask = presence_mask | PRESENCE_TERMS_REFERENCE;
+            let terms_str_ref = option::borrow(&update_data.terms_reference);
+            let terms_bytes = string::bytes(terms_str_ref);
+            append_vec_u8_with_u16_len(&mut optional_payload_part, terms_bytes);
+        };
+
+        // Contract Start Date (Optional<u64>)
+        if (option::is_some(&update_data.contract_start_date)) {
+            presence_mask = presence_mask | PRESENCE_CONTRACT_START_DATE;
+            let start_date_ref = option::borrow(&update_data.contract_start_date);
+            append_u64_big_endian(&mut optional_payload_part, *start_date_ref);
+        };
+
+        // Contract Deadline Date (Optional<u64>)
+        if (option::is_some(&update_data.contract_deadline_date)) {
+            presence_mask = presence_mask | PRESENCE_CONTRACT_DEADLINE_DATE;
+            let deadline_date_ref = option::borrow(&update_data.contract_deadline_date);
+            append_u64_big_endian(&mut optional_payload_part, *deadline_date_ref);
+        };
+
+        // Metadata (Optional<vector<u8>>)
+        if (option::is_some(&update_data.metadata)) {
+            presence_mask = presence_mask | PRESENCE_METADATA;
+            let metadata_ref = option::borrow(&update_data.metadata);
+            append_vec_u8_with_u16_len(&mut optional_payload_part, metadata_ref);
+        };
+
+        // Contract Type (Optional<u8>)
+        if (option::is_some(&update_data.contract_type)) {
+            presence_mask = presence_mask | PRESENCE_CONTRACT_TYPE;
+            let contract_type_ref = option::borrow(&update_data.contract_type);
+            vector::push_back(&mut optional_payload_part, *contract_type_ref);
+        };
+
+        // Now, construct the final payload
+        let mut final_payload = vector::empty<u8>();
+        assert!(vector::length(&target_contract_id) == FOREIGN_CONTRACT_ID_LENGTH, E_INVALID_CONTRACT_ADDRESS);
+        vector::append(&mut final_payload, target_contract_id); // target_contract_id first
+        vector::push_back(&mut final_payload, presence_mask);    // then presence_mask
+        vector::append(&mut final_payload, optional_payload_part); // then the actual optional data
+
+        final_payload
+    }
+
+    /// Serializes the data for submitting proof by Party B.
+    /// Payload format: `[target_contract_id (bytes)] [milestone_id (u64 big-endian)] [proof_ref_len (u16 big-endian)] [proof_reference (bytes)]`
+    fun serialize_submit_proof_party_b(
+        target_contract_id: vector<u8>,
+        milestone_id: u64,
+        proof_reference: vector<u8>
+    ): vector<u8> {
+        let mut payload = vector::empty<u8>();
+
+        // Append target contract identifier.
+        vector::append(&mut payload, target_contract_id);
+
+        // Append milestone ID as 8-byte big-endian.
+        let mut i = 0;
+        while (i < 8) {
+            let byte = ((milestone_id >> (8 * (7 - i))) & 0xFF) as u8;
+            vector::push_back(&mut payload, byte);
+            i = i + 1;
+        };
+
+        // Append proof_reference length (u16 big-endian) and proof_reference
+        let proof_ref_len = vector::length(&proof_reference);
+        assert!(proof_ref_len <= 65535, E_INVALID_ACTION); // Max u16
+        vector::push_back(&mut payload, (proof_ref_len >> 8) as u8); // High byte
+        vector::push_back(&mut payload, (proof_ref_len & 0xFF) as u8); // Low byte
+        vector::append(&mut payload, proof_reference);
+
+        payload
+    }
+
     // === Deserialization & Action Handlers ===
 
     /// Parses the common payload structure: extracts the action type (first byte)
@@ -456,15 +809,17 @@ module pactda::pactda_wormhole_bridge;
          ctx: &mut TxContext
      ) {
          // --- Deserialization ---
-         // Assumes payload format: [target_contract_id (bytes)] [milestone_id (u64 big-endian bytes)]
-         // We only need the milestone_id here, assuming target_contract_id was used for routing.
+         // Action_payload format: `[foreign_contract_id (32 bytes)] [milestone_id (u64 big-endian bytes)]`
+         // The foreign_contract_id is skipped as routing to the Sui contract is already done.
          let payload_len = vector::length(&payload);
-         assert!(payload_len >= 8, E_INVALID_ACTION); // Ensure payload is long enough for milestone_id
+         assert!(payload_len == FOREIGN_CONTRACT_ID_LENGTH + 8, E_INVALID_ACTION); // foreign_id + milestone_id
 
          // Extract milestone ID (last 8 bytes, big-endian).
          let mut milestone_id = 0u64;
-         let mut i = payload_len - 8; // Start index of milestone_id
-         while (i < payload_len) {
+         // Start index of milestone_id is after the foreign_contract_id.
+         let mut i = FOREIGN_CONTRACT_ID_LENGTH; 
+         let end_i = FOREIGN_CONTRACT_ID_LENGTH + 8;
+         while (i < end_i) {
              milestone_id = (milestone_id << 8) | (*vector::borrow(&payload, i) as u64);
              i = i + 1;
          };
@@ -523,19 +878,18 @@ module pactda::pactda_wormhole_bridge;
      /// Deserializes the new status and calls the core PactDa contract function.
      fun handle_contract_status_update(
          contract: &mut PactDaContract,
-         payload: vector<u8>,
+         payload: vector<u8>, // Action_payload format: `[foreign_contract_id (32 bytes)] [new_status (u8)]`
          source_chain: u16,
          _source_address: ExternalAddress, // Mark unused
          ctx: &mut TxContext
      ) {
          // --- Deserialization ---
-         // Assumes payload format: [target_contract_id (bytes)] [new_status (u8)]
-         // We only need the new_status here.
+         // The foreign_contract_id is skipped.
          let payload_len = vector::length(&payload);
-         assert!(payload_len >= 1, E_INVALID_ACTION); // Ensure payload has at least the status byte
+         assert!(payload_len == FOREIGN_CONTRACT_ID_LENGTH + 1, E_INVALID_ACTION); // foreign_id + status_byte
 
-         // Extract new status (last byte).
-         let new_status = *vector::borrow(&payload, payload_len - 1);
+         // Extract new status (byte after foreign_contract_id).
+         let new_status = *vector::borrow(&payload, FOREIGN_CONTRACT_ID_LENGTH);
 
          // --- Authorization Check ---
          // TODO: Implement robust authorization.
@@ -568,9 +922,227 @@ module pactda::pactda_wormhole_bridge;
          abort(99); // Abort with a placeholder code until implemented
      }
 
+    /// Handles the `ACTION_SIGN_CONTRACT_PARTY_B` message.
+    fun handle_sign_contract_party_b(
+        contract: &mut PactDaContract,
+        payload: vector<u8>, // Action_payload format: `[foreign_contract_id (32 bytes)]`
+        source_chain: u16,
+        _source_address: ExternalAddress,
+        ctx: &mut TxContext
+    ) {
+        // --- Deserialization & Validation ---
+        // The foreign_contract_id is present but not used directly in this handler,
+        // as routing to the Sui contract is already done and VAA emitter is verified.
+        // The action_payload for this action only contains the foreign_contract_id.
+        assert!(vector::length(&payload) == FOREIGN_CONTRACT_ID_LENGTH, E_INVALID_ACTION);
+
+        // --- Authorization Check ---
+        // Authorization is primarily handled by VAA verification (emitter chain and address).
+
+        // --- Execute Action ---
+        PactDa::confirm_party_b_signed_from_bridge(contract, ctx);
+
+        // --- Emit Event ---
+        let contract_sui_address = object::id_address(contract);
+        event::emit(ContractSignedPartyBCrossChain {
+            contract_address: contract_sui_address,
+            source_chain
+        });
+    }
+
+    /// Handles the `ACTION_UPDATE_CONTRACT_DETAILS` message.
+    /// Deserializes optional contract details based on a presence mask and calls the core PactDa contract function.
+    /// Payload format: `[foreign_contract_id (32 bytes)] [presence_mask (u8)] [optional_fields_data...]`
+    fun handle_update_contract_details(
+        contract: &mut PactDaContract,
+        payload: vector<u8>,
+        source_chain: u16,
+        _source_address: ExternalAddress,
+        ctx: &mut TxContext
+    ) {
+        // --- Deserialization ---
+        // Action_payload starts with foreign_contract_id (32 bytes), then presence_mask, then action-specific fields.
+        // We skip the foreign_contract_id here as routing is already done.
+        let mut current_idx = FOREIGN_CONTRACT_ID_LENGTH;
+        let payload_len = vector::length(&payload);
+
+        // Presence Mask (u8)
+        assert!(payload_len > current_idx, E_INVALID_ACTION);
+        let presence_mask = *vector::borrow(&payload, current_idx);
+        current_idx = current_idx + 1;
+
+        // Initialize Option variables for each field
+        let mut title_option: Option<vector<u8>> = option::none();
+        let mut terms_reference_option: Option<vector<u8>> = option::none();
+        let mut contract_start_date_option: Option<u64> = option::none();
+        let mut contract_deadline_date_option: Option<u64> = option::none();
+        let mut metadata_option: Option<vector<u8>> = option::none();
+        let mut contract_type_option: Option<u8> = option::none();
+
+        // Title (Optional<vector<u8>>)
+        if ((presence_mask & PRESENCE_TITLE) != 0) {
+            assert!(payload_len > current_idx, E_INVALID_ACTION);
+            let title_len = (*vector::borrow(&payload, current_idx)) as u64;
+            current_idx = current_idx + 1;
+
+            assert!(payload_len >= current_idx + title_len, E_INVALID_ACTION);
+            let mut title_bytes = vector::empty<u8>();
+            let mut i = 0;
+            while (i < title_len) {
+                vector::push_back(&mut title_bytes, *vector::borrow(&payload, current_idx + i));
+                i = i + 1;
+            };
+            current_idx = current_idx + title_len;
+            title_option = option::some(title_bytes);
+        };
+
+        // Terms Reference (Optional<vector<u8>>)
+        if ((presence_mask & PRESENCE_TERMS_REFERENCE) != 0) {
+            assert!(payload_len > current_idx + 1, E_INVALID_ACTION); // Need 2 bytes for length
+            let terms_len_high = (*vector::borrow(&payload, current_idx)) as u64;
+            let terms_len_low = (*vector::borrow(&payload, current_idx + 1)) as u64;
+            let terms_len = (terms_len_high << 8) | terms_len_low;
+            current_idx = current_idx + 2;
+
+            assert!(payload_len >= current_idx + terms_len, E_INVALID_ACTION);
+            let mut terms_bytes = vector::empty<u8>();
+            let mut i = 0;
+            while (i < terms_len) {
+                vector::push_back(&mut terms_bytes, *vector::borrow(&payload, current_idx + i));
+                i = i + 1;
+            };
+            current_idx = current_idx + terms_len;
+            terms_reference_option = option::some(terms_bytes);
+        };
+
+        // Contract Start Date (Optional<u64>)
+        if ((presence_mask & PRESENCE_CONTRACT_START_DATE) != 0) {
+            assert!(payload_len >= current_idx + 8, E_INVALID_ACTION);
+            let mut start_date = 0u64;
+            let mut i = 0;
+            while (i < 8) {
+                start_date = (start_date << 8) | (*vector::borrow(&payload, current_idx + i) as u64);
+                i = i + 1;
+            };
+            current_idx = current_idx + 8;
+            contract_start_date_option = option::some(start_date);
+        };
+
+        // Contract Deadline Date (Optional<u64>)
+        if ((presence_mask & PRESENCE_CONTRACT_DEADLINE_DATE) != 0) {
+            assert!(payload_len >= current_idx + 8, E_INVALID_ACTION);
+            let mut deadline_date = 0u64;
+            let mut i = 0;
+            while (i < 8) {
+                deadline_date = (deadline_date << 8) | (*vector::borrow(&payload, current_idx + i) as u64);
+                i = i + 1;
+            };
+            current_idx = current_idx + 8;
+            contract_deadline_date_option = option::some(deadline_date);
+        };
+
+        // Metadata (Optional<vector<u8>>)
+        if ((presence_mask & PRESENCE_METADATA) != 0) {
+            assert!(payload_len > current_idx + 1, E_INVALID_ACTION); // Need 2 bytes for length
+            let metadata_len_high = (*vector::borrow(&payload, current_idx)) as u64;
+            let metadata_len_low = (*vector::borrow(&payload, current_idx + 1)) as u64;
+            let metadata_len = (metadata_len_high << 8) | metadata_len_low;
+            current_idx = current_idx + 2;
+
+            assert!(payload_len >= current_idx + metadata_len, E_INVALID_ACTION);
+            let mut metadata_bytes = vector::empty<u8>();
+            let mut i = 0;
+            while (i < metadata_len) {
+                vector::push_back(&mut metadata_bytes, *vector::borrow(&payload, current_idx + i));
+                i = i + 1;
+            };
+            current_idx = current_idx + metadata_len;
+            metadata_option = option::some(metadata_bytes);
+        };
+
+        // Contract Type (Optional<u8>)
+        if ((presence_mask & PRESENCE_CONTRACT_TYPE) != 0) {
+            assert!(payload_len > current_idx, E_INVALID_ACTION);
+            let contract_type_byte = *vector::borrow(&payload, current_idx);
+            // current_idx = current_idx + 1; // Not strictly needed if it's the last field and no more fields follow
+            contract_type_option = option::some(contract_type_byte);
+        };
+
+        // --- Execute Action ---
+        PactDa::update_details_from_bridge(
+            contract,
+            title_option,
+            terms_reference_option,
+            contract_start_date_option,
+            contract_deadline_date_option,
+            metadata_option,
+            contract_type_option,
+            ctx
+        );
+
+        // --- Emit Event ---
+        let contract_sui_address = object::id_address(contract);
+        event::emit(ContractDetailsUpdatedCrossChain {
+            contract_address: contract_sui_address,
+            source_chain
+        });
+    }
+
+    /// Handles the `ACTION_SUBMIT_PROOF_PARTY_B` message.
+    /// Deserializes milestone ID and proof reference, then calls the core PactDa contract function.
+    /// Action_payload format: `[foreign_contract_id (32 bytes)] [milestone_id (u64 big-endian)] [proof_ref_len (u16 big-endian)] [proof_reference (bytes)]`
+    fun handle_submit_proof_party_b(
+        contract: &mut PactDaContract,
+        payload: vector<u8>, // Action_payload format: `[foreign_contract_id (32 bytes)] [milestone_id (u64)] [proof_ref_len (u16)] [proof_ref (bytes)]`
+        source_chain: u16,
+        _source_address: ExternalAddress,
+        ctx: &mut TxContext
+    ) {
+        // --- Deserialization ---
+        // Action_payload starts with foreign_contract_id (32 bytes), then action-specific fields.
+        // We skip the foreign_contract_id here as routing is already done.
+        let mut current_idx = FOREIGN_CONTRACT_ID_LENGTH;
+        let payload_len = vector::length(&payload);
+
+        // Milestone ID (u64 big-endian)
+        assert!(payload_len >= current_idx + 8, E_INVALID_ACTION); // Check for milestone_id bytes
+        let mut milestone_id = 0u64;
+        let mut i = 0;
+        while (i < 8) {
+            milestone_id = (milestone_id << 8) | (*vector::borrow(&payload, current_idx + i) as u64);
+            i = i + 1;
+        };
+        current_idx = current_idx + 8;
+
+        // Proof Reference Length (u16 big-endian)
+        assert!(payload_len >= current_idx + 2, E_INVALID_ACTION); // Check for proof_ref_len bytes
+        let proof_ref_len_high = (*vector::borrow(&payload, current_idx)) as u64;
+        let proof_ref_len_low = (*vector::borrow(&payload, current_idx + 1)) as u64;
+        let proof_ref_len = (proof_ref_len_high << 8) | proof_ref_len_low;
+        current_idx = current_idx + 2;
+
+        // Proof Reference
+        assert!(payload_len >= current_idx + proof_ref_len, E_INVALID_ACTION); // Check for proof_reference bytes
+        let mut proof_reference_bytes = vector::empty<u8>();
+        i = 0;
+        while (i < proof_ref_len) {
+            vector::push_back(&mut proof_reference_bytes, *vector::borrow(&payload, current_idx + i));
+            i = i + 1;
+        };
+
+        // --- Execute Action ---
+        // This requires a new function in pactda.move, let's call it `submit_proof_from_bridge`
+        PactDa::submit_proof_from_bridge(contract, milestone_id, proof_reference_bytes, ctx);
+
+        // --- Emit Event ---
+        let contract_sui_address = object::id_address(contract);
+        event::emit(ProofSubmittedPartyBCrossChain {
+            contract_address: contract_sui_address,
+            milestone_id,
+            source_chain
+        });
+    }
+
     fun destroy(vaa: VAA::VAA) {
         VAA::take_payload(vaa);
     }
-
-
-
