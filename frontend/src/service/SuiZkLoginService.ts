@@ -25,10 +25,10 @@ const setEphemeralPrivateKey = (key: Ed25519Keypair) => {
 }
 
 // Retrieve the ephemeral private key from sessionStorage and decode it
-const getEphemeralPrivateKey = (): Uint8Array => {
+const getEphemeralPrivateKey = (): string => {
   const value = sessionStorage.getItem('ephemeral-private-key')
   if (!value) throw new Error('Missing ephemeral private key')
-  return Uint8Array.from(Buffer.from(value, 'base64'))
+  return value
 }
 
 // Store JWT randomness in sessionStorage
@@ -152,7 +152,7 @@ export const requestZkLoginProof = async (
   idToken: string,
   ephemeralKey: Ed25519Keypair,
   maxEpoch: number,
-  randomness: bigint,
+  randomness: string,
   salt: string,
 ) => {
   const extendedEphemeralPublicKey = getExtendedEphemeralPublicKey(

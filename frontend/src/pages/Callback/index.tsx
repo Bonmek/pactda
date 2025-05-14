@@ -19,7 +19,7 @@ const GoogleCallback = () => {
 
         if (!idToken) throw new Error('Missing id_token in URL')
 
-        sessionStorage.setItem('google-id-token', idToken)
+        sessionStorage.setItem('id-token', idToken)
 
         const decodedJwt = decodeIdToken(idToken)
 
