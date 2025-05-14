@@ -1,10 +1,11 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::pubkey; // Corrected path
 
 // Your Solana Program ID
 declare_id!("4KuTWVUXcvrvoDvGqoBeivSAisXo8cQz8WA5P5GZRvgq");
 
 // Wormhole Core Bridge Program ID on Solana
-const WORMHOLE_CORE_BRIDGE_PID: &str = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth";
+const WORMHOLE_BRIDGE_ADDRESS: Pubkey = pubkey!("worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth");
 
 // --- Action Types ---
 // Action types for messages sent FROM Sui TO Solana (received in VAA)
@@ -103,18 +104,13 @@ pub mod pactda_sol {
     /// Processes a VAA originating from Sui.
     /// This function dispatches to specific handlers based on the action type in the VAA payload.
     pub fn process_vaa_from_sui(
-        ctx: Context<ProcessVaaFromSui>,
+        _ctx: Context<ProcessVaaFromSui>, // ctx is not used if we only error out
         _vaa_hash: [u8; 32], // Used for wormhole_message PDA constraint
-                               // VAA payload is now deserialized on-chain from wormhole_message
+        _vaa_payload_solana_stub_id: u64, // Added to match #[instruction] and client call expectation
+                                          // VAA payload is now deserialized on-chain from wormhole_message
     ) -> Result<()> {
-        // 1. Access VAA payload from wormhole_message account
-        //    This requires careful handling of the PostedVaaData structure.
-        //    For simplicity, assuming a helper function or direct parsing.
-        //    A proper Wormhole SDK integration would provide a `PostedVaaMessages` account type.
-        let acc_data = ctx.accounts.wormhole_message.try_borrow_data()?;
-        // The actual payload within the VAA structure needs to be extracted.
-        // This is a simplified placeholder for VAA payload extraction.
-        // Refer to Wormhole's official examples for robust VAA parsing.
+        // This function is deprecated and will always return an error.
+        // The line `let acc_data = ctx.accounts.wormhole_message.try_borrow_data()?;` was removed.
         // Example: if PostedVaaData has a known structure where payload is at a certain offset.
         // This is highly dependent on how `wormhole_message` account data is structured by Wormhole.
         // Let's assume `extract_vaa_payload` is a utility function you'd write or get from SDK.
@@ -182,9 +178,9 @@ pub mod pactda_sol {
     /// Updates the display status of a PactDaSolStub based on a VAA from Sui.
     pub fn update_stub_status_from_vaa(
         ctx: Context<UpdateStubStatusFromVaa>,
-        _vaa_hash: [u8; 32], // For wormhole_message constraint
+        _vaa_hash: [u8; 32], // For wormhole_message constraint in Accounts struct
         // Assuming relayer deserializes payload and passes args:
-        target_solana_stub_id: u64, // From VAA payload, used for PDA seeds
+        _target_solana_stub_id: u64, // From VAA payload, used for PDA seeds in Accounts struct
         new_display_status: String, // From VAA payload
     ) -> Result<()> {
         // VAA verification by wormhole_message account constraints.
@@ -285,22 +281,16 @@ pub struct RequestActionOnSui<'info> {
     pub signer: Signer<'info>,
 }
 
-// Common accounts for processing any VAA from Sui
+// Common accounts for VAA processing (payer and bridge)
 #[derive(Accounts)]
 pub struct SharedVaaAccounts<'info> {
     #[account(mut)]
     pub payer: Signer<'info>, // Relayer
     /// CHECK: Wormhole bridge account, verified by address.
-    #[account(address = WORMHOLE_CORE_BRIDGE_PID.parse::<Pubkey>().unwrap())]
+    #[account(address = WORMHOLE_BRIDGE_ADDRESS)]
     pub wormhole_bridge: AccountInfo<'info>,
-    /// CHECK: Posted VAA account. Seeds are checked against WORMHOLE_CORE_BRIDGE_PID.
-    #[account(
-        seeds = [b"postedVAA", vaa_hash.as_ref()], // vaa_hash comes from instruction args
-        bump,
-        seeds::program = WORMHOLE_CORE_BRIDGE_PID.parse::<Pubkey>().unwrap()
-    )]
-    pub wormhole_message: AccountInfo<'info>, // Holds the VAA data
-    pub system_program: Program<'info, System>,
+    // system_program is removed from here; add to top-level structs if they init accounts.
+    // wormhole_message is removed from here; add to top-level structs with vaa_hash from instruction.
 }
 
 #[derive(Accounts)]
@@ -313,18 +303,27 @@ pub struct SharedVaaAccounts<'info> {
     pactda_url: String, // From VAA payload
     party_b_solana_address: Pubkey, // From VAA payload, becomes initiator
     // Add new optional fields to instruction context
-    terms_reference: Option<String>, 
-    contract_start_date: Option<u64>, 
-    contract_deadline_date: Option<u64>, 
-    metadata: Option<String>, 
-    contract_type: Option<u8> 
+    _terms_reference: Option<String>, 
+    _contract_start_date: Option<u64>, 
+    _contract_deadline_date: Option<u64>, 
+    _metadata: Option<String>, 
+    _contract_type: Option<u8> 
 )]
 pub struct InitializeStubFromVaa<'info> {
-    // Inherit common VAA processing accounts
-    pub shared_vaa_accounts: SharedVaaAccounts<'info>,
+    // Use the simpler SharedVaaAccounts
+    pub shared: SharedVaaAccounts<'info>,
+    
+    /// CHECK: Posted VAA account. Seeds are checked against WORMHOLE_CORE_BRIDGE_PID.
+    #[account(
+        seeds = [b"postedVAA", vaa_hash.as_ref()],
+        bump, 
+        seeds::program = WORMHOLE_BRIDGE_ADDRESS
+    )]
+    pub wormhole_message: AccountInfo<'info>, // Holds the VAA data
+
     #[account(
         init,
-        payer = shared_vaa_accounts.payer, // Relayer pays
+        payer = shared.payer, // Relayer pays
         space = PactDaSolStub::MAX_SIZE,
         seeds = [
             b"pactda_stub_v1",
@@ -334,16 +333,26 @@ pub struct InitializeStubFromVaa<'info> {
         bump
     )]
     pub pact_da_stub: Account<'info, PactDaSolStub>,
+    pub system_program: Program<'info, System>, // System program needed for `init`
 }
 
 #[derive(Accounts)]
 #[instruction(
     vaa_hash: [u8; 32], // Passed by relayer
     target_solana_stub_id: u64, // From VAA payload, used for PDA seeds
-    new_display_status: String // From VAA payload
+    _new_display_status: String // From VAA payload
 )]
 pub struct UpdateStubStatusFromVaa<'info> {
-    pub shared_vaa_accounts: SharedVaaAccounts<'info>,
+    pub shared: SharedVaaAccounts<'info>,
+
+    /// CHECK: Posted VAA account. Seeds are checked against WORMHOLE_CORE_BRIDGE_PID.
+    #[account(
+        seeds = [b"postedVAA", vaa_hash.as_ref()],
+        bump, 
+        seeds::program = WORMHOLE_BRIDGE_ADDRESS
+    )]
+    pub wormhole_message: AccountInfo<'info>,
+
     #[account(
         mut,
         seeds = [
@@ -371,7 +380,16 @@ pub struct UpdateStubStatusFromVaa<'info> {
     new_contract_type: Option<u8>
 )]
 pub struct UpdateStubDetailsFromVaa<'info> {
-    pub shared_vaa_accounts: SharedVaaAccounts<'info>,
+    pub shared: SharedVaaAccounts<'info>,
+
+    /// CHECK: Posted VAA account. Seeds are checked against WORMHOLE_CORE_BRIDGE_PID.
+    #[account(
+        seeds = [b"postedVAA", vaa_hash.as_ref()],
+        bump, 
+        seeds::program = WORMHOLE_BRIDGE_ADDRESS
+    )]
+    pub wormhole_message: AccountInfo<'info>,
+
     #[account(
         mut,
         seeds = [
@@ -390,17 +408,19 @@ pub struct UpdateStubDetailsFromVaa<'info> {
 #[instruction(vaa_hash: [u8; 32], vaa_payload_solana_stub_id: u64)]
 pub struct ProcessVaaFromSui<'info> {
     #[account(mut)]
-    pub payer: Signer<'info>,
+    pub payer: Signer<'info>, // This is the relayer
     /// CHECK: Wormhole bridge account.
-    #[account(address = WORMHOLE_CORE_BRIDGE_PID.parse::<Pubkey>().unwrap())]
-    pub wormhole_bridge: AccountInfo<'info>,
+    #[account(address = WORMHOLE_BRIDGE_ADDRESS)]
+    pub wormhole_bridge: AccountInfo<'info>, // Renamed from shared.wormhole_bridge for clarity if preferred
+
     /// CHECK: Posted VAA account.
     #[account(
-        seeds = [b"postedVAA", vaa_hash.as_ref()],
-        bump,
-        seeds::program = WORMHOLE_CORE_BRIDGE_PID.parse::<Pubkey>().unwrap()
+        seeds = [b"postedVAA", vaa_hash.as_ref()], // vaa_hash from instruction
+        bump, 
+        seeds::program = WORMHOLE_BRIDGE_ADDRESS
     )]
-    pub wormhole_message: AccountInfo<'info>,
+    pub wormhole_message: AccountInfo<'info>, // Defined directly
+
     #[account(
         mut,
         seeds = [
@@ -463,7 +483,7 @@ pub struct ActionToSuiRequested {
     pub solana_stub_id: u64,
     pub initiator_on_solana: Pubkey,
     pub action_type_for_sui: u8,
-    #[coder(borsh)]
+    // #[coder(borsh)] removed as Vec<u8> is already serialized bytes
     pub full_action_payload_for_sui: Vec<u8>, // Serialized ActionToSuiPayload
     pub target_chain_id: u16,
     pub target_sui_bridge_address: [u8; 32],
