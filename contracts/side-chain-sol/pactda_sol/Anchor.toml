@@ -15,7 +15,7 @@ pactda_sol = "4KuTWVUXcvrvoDvGqoBeivSAisXo8cQz8WA5P5GZRvgq"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "testnet"
 wallet = "/home/ten/.config/solana/id.json"
 
 [scripts]
