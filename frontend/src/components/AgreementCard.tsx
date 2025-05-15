@@ -3,12 +3,14 @@ import { AgreementData } from '@/types/agreement';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router';
 
 interface AgreementCardProps {
     agreement: AgreementData;
 }
 
 export default function AgreementCard({ agreement }: AgreementCardProps) {
+    const navigate = useNavigate();
     const {
         title,
         status,
@@ -55,39 +57,39 @@ export default function AgreementCard({ agreement }: AgreementCardProps) {
     const getButtonVariant = () => {
         switch (status) {
             case 'active':
-                return 'bg-blue-500 hover:bg-blue-600';
+                return 'bg-blue-500 hover:bg-blue-600 text-white';
             case 'pending':
-                return 'bg-purple-600 hover:bg-purple-700';
+                return 'bg-yellow-600 hover:bg-yellow-700 text-white';
             case 'draft':
-                return 'bg-gray-600 hover:bg-gray-700';
+                return 'bg-gray-600 hover:bg-gray-700 text-white';
             default:
-                return 'bg-blue-500 hover:bg-blue-600';
+                return 'bg-blue-500 hover:bg-blue-600 text-white';
         }
     };
 
     return (
-        <motion.div 
+        <motion.div
             className="h-full flex flex-col bg-[#111936] rounded-lg p-6 border border-[#1a2948]"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{ 
+            whileHover={{
                 y: -4,
                 boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                transition: { 
+                transition: {
                     duration: 0.2,
                     ease: [0.4, 0, 0.2, 1]
                 }
             }}
             transition={{
                 opacity: { duration: 0.3 },
-                y: { 
+                y: {
                     type: 'spring',
                     stiffness: 300,
                     damping: 20
                 }
             }}
         >
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full" >
                 <div className="flex justify-between items-start mb-4">
                     <h2 className="text-lg font-semibold text-blue-200 mr-4 line-clamp-2">{title}</h2>
                     <Badge className={cn('uppercase text-xs font-bold px-3 py-1 flex-shrink-0', getBadgeVariant())}>
@@ -132,9 +134,10 @@ export default function AgreementCard({ agreement }: AgreementCardProps) {
 
                 <div className="mt-auto pt-2">
                     <Button
-                        className={cn('w-full', getButtonVariant())}
+                        className={cn('w-full cursor-pointer', getButtonVariant())}
                         variant="default"
                         size="sm"
+                        onClick={() => navigate(`/agreement/${agreement.id}`)}
                     >
                         {action}
                     </Button>

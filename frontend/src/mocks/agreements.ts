@@ -18,12 +18,12 @@ export const generateMockAgreements = (): AgreementData[] => {
       { status: 'cancelled', weight: 0.1 },
       { status: 'draft', weight: 0.05 },
     ];
-    
+
     // Calculate weighted random status
     const random = Math.random();
     let weightSum = 0;
     let status = 'active'; // default
-    
+
     for (const { status: s, weight } of statusWeights) {
       weightSum += weight;
       if (random <= weightSum) {
@@ -171,4 +171,156 @@ export const generateMockAgreements = (): AgreementData[] => {
   return mockAgreements;
 };
 
-export const mockAgreements = generateMockAgreements();
+// Add a fully detailed agreement for demo/detail page
+const mockAgreement = {
+  id: '999',
+  title: 'Full Demo Agreement',
+  status: 'active',
+  type: 'Service Agreement',
+  deadline: '2025-07-01',
+  otherParty: {
+    address: '0xParty999',
+    displayName: 'Demo Client',
+  },
+  yourRole: 'Freelancer',
+  value: '12000 SUI',
+  action: 'View & Manage',
+  parties: [
+    {
+      role: 'Party A (Client)',
+      address: '0xDemoClient',
+      status: 'Signed'
+    },
+    {
+      role: 'Party B (Freelancer)',
+      address: '0xDemoFreelancer',
+      status: 'Signed'
+    }
+  ],
+  milestones: [
+    {
+      id: 1,
+      title: 'Kickoff & Planning',
+      value: '3000 SUI',
+      deadline: '2025-05-20',
+      status: 'COMPLETED',
+      proof: 'Meeting notes uploaded'
+    },
+    {
+      id: 2,
+      title: 'First Deliverable',
+      value: '5000 SUI',
+      deadline: '2025-06-01',
+      status: 'IN_PROGRESS',
+      proof: 'In review'
+    },
+    {
+      id: 3,
+      title: 'Final Handover',
+      value: '4000 SUI',
+      deadline: '2025-07-01',
+      status: 'PENDING',
+      proof: 'Not submitted'
+    }
+  ],
+  escrow: {
+    status: 'Funded',
+    totalValue: '12000 SUI',
+    fundedBy: '0xDemoClient'
+  },
+  activity: [
+    {
+      date: 'May 10, 2025, 09:00 AM',
+      description: 'Kickoff meeting completed'
+    },
+    {
+      date: 'May 20, 2025, 02:00 PM',
+      description: 'Milestone 1 approved by Client'
+    },
+    {
+      date: 'Jun 1, 2025, 11:30 AM',
+      description: 'First Deliverable submitted by Freelancer'
+    }
+  ]
+};
+
+export const mockAgreements = [
+  {
+    id: '1001',
+    title: 'Full-Stack Web App Development',
+    status: 'active',
+    type: 'Development Contract',
+    deadline: '2025-07-01',
+    otherParty: {
+      address: '0xClient123',
+      displayName: 'Acme Corp',
+    },
+    yourRole: 'Lead Developer',
+    value: '20000 SUI',
+    action: 'View & Manage',
+    startDate: '2025-05-01',
+    contractId: '0xContract1001',
+    parties: [
+      {
+        role: 'Party A (Client)',
+        address: '0xClient123',
+        status: 'Signed',
+      },
+      {
+        role: 'Party B (Freelancer)',
+        address: '0xFreelancer456',
+        status: 'Signed',
+      },
+    ],
+    milestones: [
+      {
+        id: 1,
+        title: 'Design Phase',
+        value: '5000 SUI',
+        deadline: '2025-05-15',
+        status: 'COMPLETED',
+        proof: 'Design files submitted',
+      },
+      {
+        id: 2,
+        title: 'Development Phase',
+        value: '10000 SUI',
+        deadline: '2025-06-10',
+        status: 'IN_PROGRESS',
+        proof: 'Repo access granted',
+      },
+      {
+        id: 3,
+        title: 'Deployment & Handover',
+        value: '5000 SUI',
+        deadline: '2025-07-01',
+        status: 'PENDING',
+        proof: 'Not Submitted',
+      },
+    ],
+    escrow: {
+      status: 'Funded',
+      totalValue: '20000 SUI',
+      fundedBy: 'Acme Corp',
+    },
+    activity: [
+      {
+        date: 'May 1, 2025, 09:00 AM',
+        description: 'Contract Created by Party A',
+      },
+      {
+        date: 'May 2, 2025, 10:00 AM',
+        description: 'Both parties signed the contract',
+      },
+      {
+        date: 'May 15, 2025, 06:00 PM',
+        description: 'Design Phase marked as completed',
+      },
+      {
+        date: 'June 1, 2025, 01:30 PM',
+        description: 'Development Phase started',
+      },
+    ],
+  },
+  ...generateMockAgreements()
+];

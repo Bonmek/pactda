@@ -4,6 +4,7 @@ import Layout from './components/Layout/Layout'
 import Index from './pages/Index'
 import Notfound from './pages/Notfound'
 import Dashboard from './pages/Dashboard'
+import AgreementDetail from './components/AgreementDetail'
 import { Create } from './pages/Create'
 import { Home } from './pages/Home'
 
@@ -21,6 +22,14 @@ const router = createBrowserRouter([
     element: (
       <Layout>
         <Dashboard />
+      </Layout>
+    ),
+  },
+  {
+    path: 'agreement/:id',
+    element: (
+      <Layout>
+        <AgreementDetail />
       </Layout>
     ),
   },
