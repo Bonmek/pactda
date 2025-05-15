@@ -4,6 +4,7 @@ import { useLocation } from 'react-router'
 
 import styles from './Layout.module.css'
 import clsx from 'clsx'
+import Navbar from '../Navbar'
 
 const Layout: React.FC<PropsWithChildren> = ({ children, ...rest }) => {
   const location = useLocation()
@@ -21,10 +22,12 @@ const Layout: React.FC<PropsWithChildren> = ({ children, ...rest }) => {
   }, [])
 
   return (
-    <main className={styles.layout} {...rest}>
-      {/* Decorative blue glowing elements */}
-      <div className={clsx(styles.blueGlow, styles.topGlow)} style={{ opacity: 0.7 - (scrollPosition / 1000) }} />
-      <div className={clsx(styles.blueGlow, styles.bottomGlow)} style={{ opacity: 0.5 + (scrollPosition / 2000) }} />
+    <>
+      <Navbar />
+      <main className={styles.layout} {...rest}>
+        {/* Decorative blue glowing elements */}
+        <div className={clsx(styles.blueGlow, styles.topGlow)} style={{ opacity: 0.7 - (scrollPosition / 1000) }} />
+        <div className={clsx(styles.blueGlow, styles.bottomGlow)} style={{ opacity: 0.5 + (scrollPosition / 2000) }} />
       
       {/* Animated particles background */}
       <div className="absolute inset-0 overflow-hidden opacity-20">
@@ -59,6 +62,7 @@ const Layout: React.FC<PropsWithChildren> = ({ children, ...rest }) => {
       {/* Blue gradient bottom border */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600 opacity-70" />
     </main>
+    </>
   )
 }
 
