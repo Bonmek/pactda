@@ -2,8 +2,8 @@
   min-height: 100vh;
   width: 100%;
   color: white;
-  background-color: #0a192f; /* Dark blue base */
-  background-image: radial-gradient(circle at 50% 0%, #1a365d, #0a192f 70%);
+  background-color: #061429; /* Darker blue base */
+  background-image: radial-gradient(circle at 50% 0%, #0f2b4d, #061429 70%);
   position: relative;
   overflow: hidden;
 }
@@ -15,7 +15,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #00a3ff, #0057ff, #0084ff);
+  background: linear-gradient(90deg, #0062b3, #003d99, #004db3);
   z-index: 10;
 }
 
@@ -37,7 +37,7 @@
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  background: rgba(0, 132, 255, 0.15);
+  background: rgba(0, 64, 153, 0.25);
   filter: blur(60px);
   z-index: 1;
 }
@@ -53,9 +53,9 @@
 }
 
 .content {
-  background: rgba(13, 25, 42, 0.5);
+  background: rgba(6, 20, 41, 0.6);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(30, 64, 175, 0.2);
+  border: 1px solid rgba(15, 43, 128, 0.3);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);

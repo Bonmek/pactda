@@ -42,7 +42,7 @@ const Navbar = () => {
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ease-in-out
           ${
             isScrolled
-              ? 'bg-gradient-to-r from-primary-800/90 via-primary-900/90 to-primary-800/90 backdrop-blur-xl border-b-2 border-secondary-400/30 rounded-b-2xl shadow-lg shadow-primary-900/10'
+              ? 'bg-gradient-to-r from-[#061429]/95 via-[#05101f]/95 to-[#061429]/95 backdrop-blur-xl border-b-2 border-[#004db3]/30 rounded-b-2xl shadow-lg shadow-[#061429]/30'
               : 'bg-transparent'
           }`}
       >
@@ -64,7 +64,7 @@ const Navbar = () => {
                     className={`relative group transition-all duration-300 ${
                       isActivePath(item.to)
                         ? 'text-white font-bold tracking-wide'
-                        : 'text-secondary-200 hover:text-white font-medium'
+                        : 'text-blue-300 hover:text-white font-medium'
                     }`}
                   >
                     <motion.div
@@ -77,7 +77,7 @@ const Navbar = () => {
                         {item.id}
                       </span>
                       <motion.span
-                        className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-secondary-400 to-secondary-600"
+                        className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-blue-700 to-blue-500"
                         initial={{ scaleX: 0 }}
                         animate={{ scaleX: isActivePath(item.to) ? 1 : 0 }}
                         transition={{ duration: 0.3 }}
@@ -98,29 +98,29 @@ const Navbar = () => {
               {currentAccount?.address ? (
                 <div className="relative group">
                   <motion.button
-                    className="flex items-center space-x-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-secondary-500 to-secondary-600 text-black hover:shadow-lg hover:shadow-secondary-500/20 transition-all duration-300 group"
+                    className="flex items-center space-x-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 text-white hover:shadow-lg hover:shadow-blue-700/30 transition-all duration-300 group"
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setOpen(!open)}
                   >
-                    <Wallet className="w-4 h-4 text-black" />
-                    <span className="text-black font-semibold">
+                    <Wallet className="w-4 h-4 text-white" />
+                    <span className="text-white font-semibold">
                       {currentAccount.address.slice(0, 10)}...
                     </span>
-                    <ChevronDown className="w-4 h-4 text-black ml-1" />
+                    <ChevronDown className="w-4 h-4 text-white ml-1" />
                   </motion.button>
                   
                   {open && (
-                    <div className="absolute right-0 mt-2 min-w-[240px] bg-primary-900/95 border border-secondary-500/20 text-white shadow-2xl rounded-2xl p-3 backdrop-blur-2xl z-50">
+                    <div className="absolute right-0 mt-2 min-w-[240px] bg-[#061429]/95 border border-blue-700/30 text-white shadow-2xl rounded-2xl p-3 backdrop-blur-2xl z-50">
                       <div className="flex items-center space-x-2 px-2 pt-1 pb-2">
-                        <Wallet className="w-4 h-4 text-secondary-400" />
-                        <span className="block text-xs text-secondary-200 font-mono break-all select-all">
+                        <Wallet className="w-4 h-4 text-blue-400" />
+                        <span className="block text-xs text-blue-300 font-mono break-all select-all">
                           {currentAccount.address.slice(0, 25)}...
                         </span>
                         <button
-                          className="ml-auto px-2 py-1 rounded bg-secondary-700/30 hover:bg-secondary-500/40 text-xs text-secondary-200 transition"
+                          className="ml-auto px-2 py-1 rounded bg-blue-800/50 hover:bg-blue-700/50 text-xs text-blue-300 transition"
                           onClick={() => {
                             navigator.clipboard.writeText(currentAccount.address)
                             setCopied(true)
@@ -131,10 +131,10 @@ const Navbar = () => {
                           {copied ? 'Copied!' : 'Copy'}
                         </button>
                       </div>
-                      <div className="my-2 h-px bg-secondary-500/20" />
+                      <div className="my-2 h-px bg-blue-700/30" />
                       <button
                         onClick={() => disconnect()}
-                        className="w-full text-left text-red-400 hover:bg-primary-800/80 hover:text-red-500 focus:bg-primary-800/80 focus:text-red-500 font-semibold rounded-lg transition-colors duration-150 cursor-pointer px-3 py-2 flex items-center"
+                        className="w-full text-left text-red-400 hover:bg-[#05101f]/80 hover:text-red-500 focus:bg-[#05101f]/80 focus:text-red-500 font-semibold rounded-lg transition-colors duration-150 cursor-pointer px-3 py-2 flex items-center"
                       >
                         <LogOut className="w-4 h-4 mr-2" />
                         Logout
@@ -144,15 +144,15 @@ const Navbar = () => {
                 </div>
               ) : (
                 <motion.button
-                  className="flex items-center space-x-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-secondary-500 to-secondary-600 text-black hover:shadow-lg hover:shadow-secondary-500/20 transition-all duration-300 group"
+                  className="flex items-center space-x-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 text-white hover:shadow-lg hover:shadow-blue-700/30 transition-all duration-300 group"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setOpen(true)}
                 >
-                  <Wallet className="w-4 h-4 text-black" />
-                  <span className="text-black font-bold">
+                  <Wallet className="w-4 h-4 text-white" />
+                  <span className="text-white font-bold">
                     Connect Wallet
                   </span>
                 </motion.button>
@@ -161,7 +161,7 @@ const Navbar = () => {
 
             {/* Mobile Menu Button */}
             <motion.button
-              className="md:hidden p-2 text-secondary-200 hover:text-white transition-colors duration-300"
+              className="md:hidden p-2 text-blue-300 hover:text-white transition-colors duration-300"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               whileTap={{ scale: 0.9 }}
             >
@@ -195,7 +195,7 @@ const Navbar = () => {
 
             {/* Menu Content */}
             <motion.div
-              className="absolute right-0 top-0 h-full w-72 bg-gradient-to-b from-primary-900/95 to-primary-800/95 shadow-lg shadow-secondary-500/10 backdrop-blur-xl"
+              className="absolute right-0 top-0 h-full w-72 bg-gradient-to-b from-[#061429]/95 to-[#05101f]/95 shadow-lg shadow-blue-700/20 backdrop-blur-xl"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -207,8 +207,8 @@ const Navbar = () => {
                     key={item.id}
                     to={item.to}
                     className={`block py-3 transition-all duration-300 ${isActivePath(item.to)
-                      ? 'text-white font-bold bg-gradient-to-r from-secondary-400/20 to-secondary-600/20 rounded-lg p-4'
-                      : 'text-secondary-200 hover:text-white hover:bg-secondary-500/10 rounded-lg p-4'
+                      ? 'text-white font-bold bg-gradient-to-r from-blue-700/20 to-blue-500/20 rounded-lg p-4'
+                      : 'text-blue-300 hover:text-white hover:bg-blue-700/10 rounded-lg p-4'
                       }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -227,7 +227,7 @@ const Navbar = () => {
                 {currentAccount?.address ? (
                   <section className="space-y-2">
                     <Button
-                      className="block w-full px-3 py-2 rounded-lg bg-primary-300/20 text-secondary-200 font-mono font-semibold text-sm text-center truncate select-all mb-2 border border-secondary-500/20 shadow-sm transition-colors duration-200 hover:bg-primary-300/40 focus:outline-none"
+                      className="block w-full px-3 py-2 rounded-lg bg-[#0f2b4d]/30 text-blue-300 font-mono font-semibold text-sm text-center truncate select-all mb-2 border border-blue-700/30 shadow-sm transition-colors duration-200 hover:bg-[#0f2b4d]/50 focus:outline-none"
                       onClick={() => {
                         navigator.clipboard.writeText(currentAccount.address);
                         setCopied(true);
@@ -240,7 +240,7 @@ const Navbar = () => {
                         : `${currentAccount.address.slice(0, 25)}...`}
                     </Button>
                     <motion.button
-                      className="w-full flex items-center justify-center mt-5 space-x-2 px-6 py-3 rounded-full bg-red-500 text-white font-bold tracking-wide hover:shadow-lg hover:shadow-secondary-500/20 transition-all duration-300"
+                      className="w-full flex items-center justify-center mt-5 space-x-2 px-6 py-3 rounded-full bg-red-500 text-white font-bold tracking-wide hover:shadow-lg hover:shadow-blue-700/20 transition-all duration-300"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
@@ -254,7 +254,7 @@ const Navbar = () => {
                   </section>
                 ) : (
                   <motion.button
-                    className="w-full flex items-center justify-center space-x-2 px-6 py-3 rounded-full bg-gradient-to-r from-secondary-500 to-secondary-600 text-black font-bold tracking-wide hover:shadow-lg hover:shadow-secondary-500/20 transition-all duration-300"
+                    className="w-full flex items-center justify-center space-x-2 px-6 py-3 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 text-white font-bold tracking-wide hover:shadow-lg hover:shadow-blue-700/30 transition-all duration-300"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
@@ -262,7 +262,7 @@ const Navbar = () => {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setOpen(true)}
                   >
-                    <Wallet className="w-5 h-5" />
+                    <Wallet className="w-5 h-5 text-white" />
                     <span>Connect Wallet</span>
                   </motion.button>
                 )}
