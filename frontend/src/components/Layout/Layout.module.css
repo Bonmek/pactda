@@ -2,7 +2,8 @@
   min-height: 100vh;
   width: 100%;
   color: white;
-  background-color: #061429; /* Darker blue base */
+  background-color: #061429;
+  /* Darker blue base */
   background-image: radial-gradient(circle at 50% 0%, #0f2b4d, #061429 70%);
   position: relative;
   overflow: hidden;
@@ -52,28 +53,32 @@
   left: 10%;
 }
 
-.content {
+/* .content {
   background: rgba(6, 20, 41, 0.6);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(15, 43, 128, 0.3);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
+} */
 
 @keyframes float {
   0% {
     transform: translateY(0) translateX(0);
   }
+
   25% {
     transform: translateY(-10px) translateX(10px);
   }
+
   50% {
     transform: translateY(-20px) translateX(0);
   }
+
   75% {
     transform: translateY(-10px) translateX(-10px);
   }
+
   100% {
     transform: translateY(0) translateX(0);
   }
