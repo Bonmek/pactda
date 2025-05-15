@@ -60,7 +60,7 @@ export default function Dashboard() {
   const Pagination = () => (
     <nav className="flex justify-center items-center gap-2 mt-8 select-none" aria-label="Pagination">
       <button
-        className="px-3 py-1 rounded-full border border-gray-600 bg-[#181f36] text-gray-300 hover:bg-blue-500 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1 rounded-full border border-gray-600 bg-primary-500 text-gray-300 hover:bg-blue-500 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={() => { setPrevPage(currentPage); setCurrentPage((p) => Math.max(1, p - 1)); }}
         disabled={currentPage === 1}
         aria-label="Previous Page"
@@ -72,7 +72,7 @@ export default function Dashboard() {
           key={page}
           className={`px-3 py-1 rounded-full border transition font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400 ${currentPage === page
             ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-            : 'bg-[#181f36] border-gray-600 text-gray-300 hover:bg-blue-600 hover:text-white'
+            : 'bg-primary-500 border-gray-600 text-gray-300 hover:bg-blue-600 hover:text-white'
             }`}
           onClick={() => { setPrevPage(currentPage); setCurrentPage(page); }}
           aria-current={currentPage === page ? 'page' : undefined}
@@ -81,7 +81,7 @@ export default function Dashboard() {
         </button>
       ))}
       <button
-        className="px-3 py-1 rounded-full border border-gray-600 bg-[#181f36] text-gray-300 hover:bg-blue-500 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-3 py-1 rounded-full border border-gray-600 bg-primary-500 text-gray-300 hover:bg-blue-500 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={() => { setPrevPage(currentPage); setCurrentPage((p) => Math.min(totalPages, p + 1)); }}
         disabled={currentPage === totalPages}
         aria-label="Next Page"

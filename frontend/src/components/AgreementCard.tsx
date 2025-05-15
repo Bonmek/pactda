@@ -69,7 +69,7 @@ export default function AgreementCard({ agreement }: AgreementCardProps) {
 
     return (
         <motion.div
-            className="h-full flex flex-col bg-[#111936] rounded-lg p-6 border border-[#1a2948]"
+            className="h-full flex flex-col bg-primary-500 rounded-lg p-6 border border-primary-600"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{

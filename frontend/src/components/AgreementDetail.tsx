@@ -1,4 +1,5 @@
 import { useNavigate, useParams, useLocation } from 'react-router';
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -38,6 +39,11 @@ export default function AgreementDetail() {
 
     const location = useLocation();
 
+    // Scroll to top when component mounts or agreement ID changes
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [id]);
+
     return (
         <AnimatePresence mode="wait">
             <motion.div
@@ -61,14 +67,21 @@ export default function AgreementDetail() {
                     <h1 className="text-3xl font-bold text-[#a9b8fa] tracking-tight leading-tight drop-shadow-md">
                         {agreement.title}
                     </h1>
-                    <Badge className="bg-gradient-to-r from-blue-700 to-blue-400 text-white uppercase shadow-md px-4 py-2 text-sm tracking-wider">
+                    <Badge className={`uppercase shadow-md px-4 py-2 text-sm tracking-wider ${
+                        agreement.status === 'active' ? 'bg-gradient-to-r from-green-600 to-green-400' :
+                        agreement.status === 'pending' ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                        agreement.status === 'completed' ? 'bg-gradient-to-r from-blue-600 to-blue-400' :
+                        agreement.status === 'draft' ? 'bg-gradient-to-r from-gray-600 to-gray-400' :
+                        agreement.status === 'expired' ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                        'bg-gradient-to-r from-blue-700 to-blue-400'
+                    } text-white`}>
                         {agreement.status}
                     </Badge>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-8">
-                        <div className="bg-[#111936]/90 rounded-2xl p-8 shadow-2xl border border-blue-800/40 backdrop-blur-md transition-all duration-300 hover:scale-[1.01]">
+                        <div className="bg-primary-500 rounded-2xl p-8 shadow-2xl border border-primary-400/40 backdrop-blur-md transition-all duration-300 hover:scale-[1.01]">
                             <h2 className="text-lg font-bold uppercase tracking-widest text-blue-200 mb-6 border-b border-blue-800/30 pb-2 flex items-center gap-2">
                                 <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
                                 Contract Details
@@ -93,7 +106,7 @@ export default function AgreementDetail() {
                             </div>
                         </div>
 
-                        <div className="bg-[#1a2247]/70 rounded-2xl p-8 shadow-lg border border-yellow-600/20 backdrop-blur-md transition-all duration-300 hover:scale-[1.01]">
+                        <div className="bg-primary-500/70 rounded-2xl p-8 shadow-lg border border-primary-400/20 backdrop-blur-md transition-all duration-300 hover:scale-[1.01]">
                             <h2 className="text-lg font-bold uppercase tracking-widest text-yellow-300 mb-6 border-b border-yellow-700/20 pb-2 flex items-center gap-2">
                                 <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full"></span>
                                 Parties
@@ -114,7 +127,7 @@ export default function AgreementDetail() {
                             </div>
                         </div>
 
-                        <div className="bg-[#232e4a]/80 rounded-2xl p-8 shadow-lg border border-purple-700/30 backdrop-blur-md transition-all duration-300 hover:scale-[1.01]">
+                        <div className="bg-primary-500/80 rounded-2xl p-8 shadow-lg border border-primary-400/30 backdrop-blur-md transition-all duration-300 hover:scale-[1.01]">
                             <h2 className="text-lg font-bold uppercase tracking-widest text-purple-300 mb-6 border-b border-purple-700/20 pb-2 flex items-center gap-2">
                                 <span className="inline-block w-2 h-2 bg-purple-400 rounded-full"></span>
                                 Milestones
@@ -149,14 +162,14 @@ export default function AgreementDetail() {
                     </div>
 
                     <div className="space-y-6">
-                        <div className="bg-[#111936] rounded-lg p-6">
+                        <div className="bg-primary-500/70 rounded-lg p-6 border border-primary-400/20">
                             <h2 className="text-xl font-semibold text-blue-200 mb-4">Actions</h2>
-                            <Button className="w-full bg-blue-500 hover:bg-blue-600 mb-3">
+                            <Button className="w-full bg-blue-500 text-white hover:bg-blue-600 mb-3">
                                 Send for Review
                             </Button>
                         </div>
 
-                        <div className="bg-[#111936] rounded-lg p-6">
+                        <div className="bg-primary-500/70 rounded-lg p-6 border border-primary-400/20">
                             <h2 className="text-xl font-semibold text-blue-200 mb-4">Escrow</h2>
                             <div className="space-y-3 text-sm">
                                 <div className="flex justify-between">
@@ -174,7 +187,7 @@ export default function AgreementDetail() {
                             </div>
                         </div>
 
-                        <div className="bg-[#111936] rounded-lg p-6">
+                        <div className="bg-primary-500/70 rounded-lg p-6 border border-primary-400/20">
                             <h2 className="text-xl font-semibold text-blue-200 mb-4">Activity Timeline</h2>
                             <div className="space-y-4">
                                 {(agreement as any).activity?.map((event: { date: string; description: string }, index: number) => (
