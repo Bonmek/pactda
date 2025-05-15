@@ -36,7 +36,7 @@ const Layout: React.FC<PropsWithChildren> = ({ children, ...rest }) => {
         />
 
         {/* Animated particles background */}
-        <div className="absolute inset-0 overflow-hidden opacity-20 my-32">
+        <div className="absolute inset-0 overflow-hidden opacity-20">
           {Array.from({ length: 20 }).map((_, i) => (
             <div
               key={i}
@@ -59,7 +59,7 @@ const Layout: React.FC<PropsWithChildren> = ({ children, ...rest }) => {
             <div
               className={clsx(
                 isHomePage ? '' : styles.content,
-                'relative z-10 w-full h-full',
+                'relative z-10 w-full h-full my-18',
               )}
             >
               {children}
