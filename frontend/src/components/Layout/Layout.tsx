@@ -6,8 +6,8 @@ import Footer from './Footer';
 import styles from './Layout.module.css';
 
 interface LayoutProps {
-  selectedWalletType: 'sui' | 'metamask' | null;
-  setSelectedWalletType: (type: 'sui' | 'metamask' | null) => void;
+  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null;
+  setSelectedWalletType: (type: 'sui' | 'metamask' | 'google' | 'facebook' | null) => void;
   children: React.ReactNode;
 }
 
@@ -18,7 +18,7 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   // Try to load the saved wallet type from localStorage
   useEffect(() => {
-    const savedWalletType = localStorage.getItem('selectedWalletType') as 'sui' | 'metamask' | null;
+    const savedWalletType = localStorage.getItem('selectedWalletType') as 'sui' | 'metamask' | 'google' | 'facebook' | null;
     if (savedWalletType) {
       setSelectedWalletType(savedWalletType);
     }
