@@ -8,10 +8,11 @@ import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import CreateContract from './pages/CreateContract'
 import ContractDetail from './pages/ContractDetail'
+import Home from './pages/Home'
 
 interface HomeProps {
-  selectedWalletType: 'sui' | 'metamask' | null
-  setSelectedWalletType: (type: 'sui' | 'metamask' | null) => void
+  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
+  setSelectedWalletType: (type: 'sui' | 'metamask' | 'google' | 'facebook' | null) => void
 }
 
 type ChildProps = HomeProps
@@ -23,7 +24,7 @@ const RouteWrapper = ({
   component: React.ComponentType<HomeProps>
 }) => {
   const [selectedWalletType, setSelectedWalletType] = useState<
-    'sui' | 'metamask' | null
+    'sui' | 'metamask' | 'google' | 'facebook' | null
   >(null)
 
   // Pass wallet state to the Layout and then to the children
@@ -43,11 +44,7 @@ const RouteWrapper = ({
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <RouteWrapper component={Index} />,
-  },
-  {
-    path: '/',
-    element: <RouteWrapper component={Index} />,
+    element: <RouteWrapper component={Home} />,
   },
   {
     path: '/token-bridge',

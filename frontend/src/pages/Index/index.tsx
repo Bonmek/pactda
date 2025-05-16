@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { SuiWalletCard, MetaMaskWalletCard } from '../../components/Wallet'
 
 interface IndexProps {
-  selectedWalletType: 'sui' | 'metamask' | null
-  setSelectedWalletType: (type: 'sui' | 'metamask' | null) => void
+  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
+  setSelectedWalletType: (type: 'sui' | 'metamask' | 'google' | 'facebook' | null) => void
 }
 
 export default function Index({
@@ -95,5 +95,5 @@ export default function Index({
         <MetaMaskWalletCard />
       </div>
     </div>
-  )
+  );
 }
