@@ -8,6 +8,7 @@ import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import CreateContract from './pages/CreateContract'
 import ContractDetail from './pages/ContractDetail'
+import Home from './pages/Home'
 
 interface HomeProps {
   selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
@@ -43,7 +44,7 @@ const RouteWrapper = ({
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <RouteWrapper component={Index} />,
+    element: <RouteWrapper component={Home} />,
   },
   {
     path: '/token-bridge',

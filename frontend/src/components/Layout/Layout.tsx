@@ -88,8 +88,8 @@ const Layout: React.FC<LayoutProps> = ({
           <div className={styles.container}>
             <div
               className={clsx(
-                isHomePage ? '' : styles.content,
-                'relative z-10 w-full h-full my-18',
+                isHomePage ? 'my-2' : styles.content,
+                'relative z-10 w-full h-full',
               )}
             >
               {children}
