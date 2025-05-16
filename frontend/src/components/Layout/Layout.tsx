@@ -49,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
   }, [selectedWalletType]);
   
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-[#0c1225] to-[#0f172a] text-gray-100">
       <Header 
         selectedWalletType={selectedWalletType} 
         setSelectedWalletType={setSelectedWalletType}
@@ -88,8 +88,8 @@ const Layout: React.FC<LayoutProps> = ({
           <div className={styles.container}>
             <div
               className={clsx(
-                isHomePage ? '' : styles.content,
-                'relative z-10 w-full h-full my-18',
+                isHomePage ? 'my-2' : styles.content,
+                'relative z-10 w-full h-full',
               )}
             >
               {children}
