@@ -14,7 +14,7 @@ const wagmiConfig = createConfig({
   transports: {
     [mainnet.id]: http(),
   },
-})
+});
 
 const networks = {
   devnet: { url: getFullnodeUrl('devnet') },
@@ -35,5 +35,5 @@ export function Providers({ children }: { children: React.ReactNode }) {
         </WalletProvider>
       </SuiClientProvider>
     </QueryClientProvider>
-  )
+  );
 }
