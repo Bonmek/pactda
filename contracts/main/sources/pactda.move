@@ -16,6 +16,10 @@ module pactda::pactda;
     use sui::transfer; 
     use std::option::{Self, Option}; 
     use std::vector;
+    
+    // Wormhole related
+    use wormhole::state::{State as WormholeState};
+    use wormhole::publish_message::{Self};
 
     // Error codes
     // const EInvalidParty: u64 = 1;
@@ -531,8 +535,28 @@ module pactda::pactda;
         create_receipt(object::id_address(contract), string::utf8(b"escrow_funded"), ctx);
     }    
     /// Submits the contract for review.
+    /// This is a simplified version that maintains compatibility with existing code.
     public entry fun submit_contract(
         contract: &mut PactDaContract,
+        ctx: &mut TxContext,
+    ) {
+        submit_contract_with_bridge(
+            contract,
+            option::none(),
+            option::none(),
+            option::none(),
+            ctx
+        );
+    }
+
+    /// Submits the contract for review.
+    /// If the contract has cross-chain parties, and a bridge is provided,
+    /// a message will be sent to create a contract stub on the side chain.
+    public entry fun submit_contract_with_bridge(
+        contract: &mut PactDaContract,
+        bridge_opt: Option<&mut pactda::pactda_wormhole_bridge::PactDaBridge>,
+        wormhole_state_opt: Option<&mut wormhole::state::State>,
+        fee_coin_opt: Option<Coin<SUI>>,
         ctx: &mut TxContext,
     ) {
         let sender = tx_context::sender(ctx);
@@ -540,6 +564,45 @@ module pactda::pactda;
         assert!(contract.status == CONTRACT_STATUS_DRAFT, EInvalidStatus);
 
         contract.status = CONTRACT_STATUS_PENDING;
+
+        // Check if this is a cross-chain contract and if all required components are provided
+        if (option::is_some(&contract.cross_chain_parties) && 
+            option::is_some(&bridge_opt) && 
+            option::is_some(&wormhole_state_opt) && 
+            option::is_some(&fee_coin_opt)) {
+            
+            let bridge = option::borrow_mut(&mut bridge_opt);
+            let wormhole_state = option::borrow_mut(&mut wormhole_state_opt);
+            let cross_chain_parties = option::borrow(&contract.cross_chain_parties);
+            
+            // Find party B's chain and address
+            let mut i = 0;
+            let len = vector::length(cross_chain_parties);
+            while (i < len) {
+                let party_info = vector::borrow(cross_chain_parties, i);
+                if (party_info.role == PARTY_ROLE_B) {
+                    // Create a contract stub on the side chain
+                    let message_ticket = pactda::pactda_wormhole_bridge::send_create_stub_message(
+                        bridge,
+                        party_info.chain_id,
+                        object::id(contract),
+                        contract.title,
+                        string::utf8(contract.terms_reference),
+                        ctx
+                    );
+                    
+                    // Publish the message to the Wormhole network using the Wormhole's own publish_message function
+                    wormhole::publish_message::publish_message(
+                        wormhole_state,
+                        message_ticket,
+                        option::extract(&mut fee_coin_opt),
+                        ctx
+                    );
+                    break;
+                };
+                i = i + 1;
+            };
+        };
 
         create_receipt(object::id_address(contract), string::utf8(b"contract_submitted"), ctx);
     }
