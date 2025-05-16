@@ -46,10 +46,6 @@ export const router = createBrowserRouter([
     element: <RouteWrapper component={Index} />,
   },
   {
-    path: '/',
-    element: <RouteWrapper component={Index} />,
-  },
-  {
     path: '/token-bridge',
     element: <RouteWrapper component={TokenBridge} />,
   },
