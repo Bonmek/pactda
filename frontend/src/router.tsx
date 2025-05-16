@@ -1,45 +1,76 @@
-import { createBrowserRouter } from 'react-router'
-
+import { createBrowserRouter } from 'react-router-dom'
+import React, { useState } from 'react'
 import Layout from './components/Layout/Layout'
 import Index from './pages/Index'
 import Notfound from './pages/Notfound'
-import { Dashboard } from './pages/Dashboard'
-import { Create } from './pages/Create'
-import { Home } from './pages/Home'
+import TokenBridge from './pages/TokenBridge'
+import Callback from './pages/Callback'
+import Dashboard from './pages/Dashboard'
+import CreateContract from './pages/CreateContract'
+import ContractDetail from './pages/ContractDetail'
 
-const router = createBrowserRouter([
+interface HomeProps {
+  selectedWalletType: 'sui' | 'metamask' | null
+  setSelectedWalletType: (type: 'sui' | 'metamask' | null) => void
+}
+
+type ChildProps = HomeProps
+
+// Create a wrapper component to manage state across routes
+const RouteWrapper = ({
+  component: Component,
+}: {
+  component: React.ComponentType<HomeProps>
+}) => {
+  const [selectedWalletType, setSelectedWalletType] = useState<
+    'sui' | 'metamask' | null
+  >(null)
+
+  // Pass wallet state to the Layout and then to the children
+  return (
+    <Layout
+      selectedWalletType={selectedWalletType}
+      setSelectedWalletType={setSelectedWalletType}
+    >
+      <Component
+        selectedWalletType={selectedWalletType}
+        setSelectedWalletType={setSelectedWalletType}
+      />
+    </Layout>
+  )
+}
+
+export const router = createBrowserRouter([
   {
     path: '/',
-    element: (
-      <Layout>
-        <Home/>
-      </Layout>
-    ),
+    element: <RouteWrapper component={Index} />,
   },
   {
-    path: '/Dashboard',
-    element: (
-      <Layout>
-        <Dashboard />
-      </Layout>
-    ),
+    path: '/',
+    element: <RouteWrapper component={Index} />,
   },
   {
-    path: '/Create',
-    element: (
-      <Layout>
-        <Create />
-      </Layout>
-    ),
+    path: '/token-bridge',
+    element: <RouteWrapper component={TokenBridge} />,
+  },
+  {
+    path: '/callback',
+    element: <RouteWrapper component={Callback} />,
   },
   {
     path: '*',
-    element: (
-      <Layout>
-        <Notfound />
-      </Layout>
-    ),
+    element: <RouteWrapper component={Notfound} />,
   },
+  {
+    path: '/dashboard',
+    element: <RouteWrapper component={Dashboard} />,
+  },
+  {
+    path: '/create-contract',
+    element: <RouteWrapper component={CreateContract} />,
+  },
+  {
+    path: '/contract/:id',
+    element: <RouteWrapper component={ContractDetail} />,
+  }
 ])
-
-export default router

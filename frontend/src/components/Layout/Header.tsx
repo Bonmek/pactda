@@ -1,0 +1,431 @@
+import React, { useState, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  useCurrentAccount,
+  useDisconnectWallet,
+  useConnectWallet,
+  useWallets,
+} from '@mysten/dapp-kit'
+import { useAccount, useDisconnect, useConnect } from 'wagmi'
+import { useAuth } from '@/contexts/AuthContext'
+
+interface HeaderProps {
+  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
+  setSelectedWalletType: (
+    type: 'sui' | 'metamask' | 'google' | 'facebook' | null,
+  ) => void
+}
+
+const Header: React.FC<HeaderProps> = ({
+  selectedWalletType,
+  setSelectedWalletType,
+}) => {
+  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // ใช้ useAuth hook จาก context
+  const { login, logout, zkloginAddress } = useAuth()
+
+  // Get wallet account information based on selected wallet type
+  const suiAccount = useCurrentAccount()
+  const { address: ethAddress, isConnected: isEthConnected } = useAccount()
+  const { disconnect: disconnectEth } = useDisconnect()
+  const { mutate: disconnectSui } = useDisconnectWallet()
+
+  // Connect wallet hooks
+  const { mutate: connectSuiWallet } = useConnectWallet()
+  const { connect: connectEth, connectors } = useConnect()
+  // Move the useWallets hook call to the component top level
+  const wallets = useWallets()
+
+  // Determine if any wallet is connected
+  const isWalletConnected =
+    (selectedWalletType === 'sui' && suiAccount) ||
+    (selectedWalletType === 'metamask' && isEthConnected) ||
+    ((selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
+      zkloginAddress)
+
+  // Handle MetaMask connection
+  const handleConnectMetaMask = async () => {
+    const metamaskConnector = connectors.find((c) => c.id === 'injected')
+    if (!metamaskConnector) {
+      console.error('MetaMask not found')
+      return
+    }
+
+    // Close dropdown first to provide a cleaner UI when popup appears
+    setWalletDropdownOpen(false)
+
+    try {
+      // Set wallet type first to update UI
+      setSelectedWalletType('metamask')
+      // Then trigger the connect popup
+      await connectEth({ connector: metamaskConnector })
+    } catch (error) {
+      // If connection fails or is rejected, reset wallet type
+      console.error('MetaMask connection failed:', error)
+      setSelectedWalletType(null)
+    }
+  }
+
+  // Handle Sui wallet connection
+  const handleConnectSui = () => {
+    // Close dropdown first to provide a cleaner UI when popup appears
+    setWalletDropdownOpen(false)
+
+    try {
+      // Use the wallets value from the hook called at the top level
+      const suiWallet = wallets[0]
+
+      if (!suiWallet) {
+        console.error('No Sui wallet available')
+        return
+      }
+
+      // Set wallet type first to update UI
+      setSelectedWalletType('sui')
+      // Then trigger the connect popup (modal)
+      connectSuiWallet({ wallet: suiWallet })
+    } catch (error) {
+      // If connection fails or is rejected, reset wallet type
+      console.error('Sui wallet connection failed:', error)
+      setSelectedWalletType(null)
+    }
+  }
+
+  // ใช้ context สำหรับการเข้าสู่ระบบ Google
+  const handleConnectGoogle = async () => {
+    try {
+      setWalletDropdownOpen(false)
+      setSelectedWalletType('google')
+      await login({ authType: 'google' }) // ใช้ context login
+    } catch (error) {
+      console.error('Google login failed:', error)
+      setSelectedWalletType(null)
+    }
+  }
+
+  // ใช้ context สำหรับการเข้าสู่ระบบ Facebook
+  const handleConnectFacebook = async () => {
+    try {
+      setWalletDropdownOpen(false)
+      setSelectedWalletType('facebook')
+      await login({ authType: 'facebook' }) // ใช้ context login
+    } catch (error) {
+      console.error('Facebook login failed:', error)
+      setSelectedWalletType(null)
+    }
+  }
+
+  // Get the connected address based on wallet type
+  const getConnectedAddress = () => {
+    if (selectedWalletType === 'sui' && suiAccount) {
+      return suiAccount.address
+    } else if (selectedWalletType === 'metamask' && ethAddress) {
+      return ethAddress
+    } else if (
+      (selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
+      zkloginAddress
+    ) {
+      return zkloginAddress
+    }
+    return null
+  }
+
+  // Truncate address for display
+  const truncateAddress = (address: string) => {
+    if (!address) return ''
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
+  }
+
+  // Handle wallet disconnect
+  const handleDisconnect = () => {
+    if (selectedWalletType === 'metamask') {
+      disconnectEth()
+    } else if (selectedWalletType === 'sui') {
+      // Properly disconnect the Sui wallet
+      disconnectSui()
+    } else if (
+      selectedWalletType === 'google' ||
+      selectedWalletType === 'facebook'
+    ) {
+      logout() // ใช้ context logout
+    }
+
+    // Clear selected wallet type
+    setSelectedWalletType(null)
+    setWalletDropdownOpen(false)
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setWalletDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Set loading to true when the component mounts (page refresh)
+    setIsLoading(true)
+
+    // You can use a timeout here or check if accounts are being loaded
+    const timer = setTimeout(() => {
+      setIsLoading(false) // Stop loading after 1 second (or when you have the actual data)
+    }, 1000)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [])
+
+  return (
+    <header className="w-full py-4 border-b border-gray-800">
+      <div className="container mx-auto px-4 flex justify-between items-center">
+        <div className="flex items-center">
+          <Link to="/" className="text-2xl font-bold text-blue-500">
+            PactDA
+          </Link>
+          <nav className="hidden md:flex ml-8">
+            <Link
+              to="/"
+              className="mx-2 text-gray-300 hover:text-white transition"
+            >
+              Home
+            </Link>
+            <Link
+              to="/token-bridge"
+              className="mx-2 text-gray-300 hover:text-white transition"
+            >
+              Token Bridge
+            </Link>
+            <Link
+              to="/about"
+              className="mx-2 text-gray-300 hover:text-white transition"
+            >
+              About
+            </Link>
+            <Link
+              to="/docs"
+              className="mx-2 text-gray-300 hover:text-white transition"
+            >
+              Docs
+            </Link>
+          </nav>
+        </div>
+
+        {/* Wallet Selector in header */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            disabled={isLoading}
+            onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
+            className={`${isWalletConnected || isLoading ? 'bg-gray-800 border border-gray-600' : 'bg-blue-700 hover:bg-blue-800'} text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2`}
+          >
+            {isLoading ? (
+              <span>Loading...</span>
+            ) : isWalletConnected ? (
+              <>
+                <span
+                  className={
+                    selectedWalletType === 'sui'
+                      ? 'text-blue-400'
+                      : selectedWalletType === 'metamask'
+                        ? 'text-yellow-500'
+                        : 'text-red-400'
+                  }
+                >
+                  {selectedWalletType === 'sui'
+                    ? '⚡ Sui: '
+                    : selectedWalletType === 'metamask'
+                      ? '🦊 MetaMask: '
+                      : '🔐 Zklogin: '}
+                </span>
+                <span className="font-mono">
+                  {truncateAddress(getConnectedAddress() || '')}
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </>
+            ) : (
+              <>
+                Connect Wallet
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </>
+            )}
+          </button>
+
+          {walletDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-64 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-10">
+              {isWalletConnected ? (
+                <div className="p-4">
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-400 mb-1">
+                      Connected to{' '}
+                      {selectedWalletType === 'sui' ? 'Sui Wallet' : 'MetaMask'}
+                    </p>
+                    <div className="p-2 bg-gray-900 rounded-md font-mono text-xs break-all">
+                      {getConnectedAddress()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleDisconnect}
+                    className="w-full text-left px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md flex items-center justify-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                      <polyline points="16 17 21 12 16 7"></polyline>
+                      <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Disconnect
+                  </button>
+                </div>
+              ) : (
+                <div className="p-2">
+                  <button
+                    onClick={handleConnectSui}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+                    </svg>
+                    Sui Wallet
+                  </button>
+                  <button
+                    onClick={handleConnectMetaMask}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m7.3 14.7 1.2-1.2m1.8-1.8 1.5-1.5"></path>
+                      <circle cx="13" cy="14" r="3"></circle>
+                      <path d="M14.5 9.5 17 7l4 1-6 6-5-3 1.5-2.5Z"></path>
+                      <path d="M19.9 8.1a2 2 0 0 1 0 2.7l-6.8 6.8a2 2 0 0 1-2.7 0l-7-7a2 2 0 0 1 0-2.7l6.7-6.7a2 2 0 0 1 2.7 0Z"></path>
+                    </svg>
+                    MetaMask
+                  </button>
+                  <div className="flex items-center my-3 text-gray-400 text-sm">
+                    <div className="flex-grow border-t border-gray-600"></div>
+                    <span className="px-2">zkLogin</span>
+                    <div className="flex-grow border-t border-gray-600"></div>
+                  </div>
+                  <button
+                    onClick={handleConnectGoogle}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 533.5 544.3"
+                    >
+                      <path
+                        fill="#4285F4"
+                        d="M533.5 278.4c0-18.5-1.5-37.3-4.7-55.3H272v104.7h146.9c-6.3 34.4-25 63.5-53.4 83.1v68.7h86.1c50.4-46.4 81.9-114.8 81.9-201.2z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M272 544.3c72.6 0 133.5-23.9 178-64.9l-86.1-68.7c-23.9 16.1-54.4 25.6-91.9 25.6-70.7 0-130.6-47.9-152.1-112.1H30.5v70.7c44.3 87.5 134.7 149.4 241.5 149.4z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M119.9 323.9c-10.6-31.4-10.6-65.6 0-97l-70.3-70.7C15.2 203.6 0 240.3 0 278.4s15.2 74.8 49.6 122.2l70.3-76.7z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M272 107.7c39.6 0 75.1 13.5 103.2 39.7l77.2-77.2C405.5 24.4 344.6 0 272 0 165.2 0 74.8 61.9 30.5 149.4l89.4 77.2c21.5-64.2 81.4-112.1 152.1-112.1z"
+                      />
+                    </svg>
+                    <span>Google</span>
+                  </button>
+                  <button
+                    onClick={handleConnectFacebook}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 32 32"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        fill="#1877F2"
+                        d="M32 16a16 16 0 1 0-18.5 15.8V20.7h-4v-4.7h4v-3.6c0-4 2.4-6.2 6-6.2 1.7 0 3.4.3 3.4.3v3.8H21c-2 0-2.6 1.2-2.6 2.5v3.2h4.4l-.7 4.7h-3.7v11.1A16 16 0 0 0 32 16z"
+                      />
+                      <path
+                        fill="#FFF"
+                        d="M22.1 20.7l.7-4.7h-4.4v-3.2c0-1.3.6-2.5 2.6-2.5h1.9V6.5s-1.6-.3-3.4-.3c-3.6 0-6 2.2-6 6.2v3.6h-4v4.7h4v11.1a16.1 16.1 0 0 0 5 0V20.7h3.6z"
+                      />
+                    </svg>
+
+                    <span>Facebook</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  )
+}
+
+export default Header
