@@ -15,9 +15,9 @@ import { useSignAndExecuteTransaction } from '@mysten/dapp-kit'
 import { buildCreateContractTx } from '@/service/PactdaService'
 
 
-const [loading, setLoading] = useState(false)
-const navigate = useNavigate()
-const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction()
+// const [loading, setLoading] = useState(false)
+// const navigate = useNavigate()
+// const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction()
 
 // const handleSubmit = async () => {
 //   setLoading(true)
