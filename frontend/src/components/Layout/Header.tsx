@@ -189,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({
   }, [])
 
   return (
-    <header className="w-full py-4 border-b border-gray-800">
+    <header className="w-full py-4 border-b border-gray-800 z-99">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex items-center">
           <Link to="/" className="text-2xl font-bold text-blue-500">
