@@ -11,7 +11,7 @@ import EscrowPayment from './EscrowPayment'
 import MilestoneList from './MilestoneList'
 import AdditionalInformation from './AdditionalInformation'
 import { useNavigate } from 'react-router-dom'
-import { useSignAndExecuteTransaction } from '@mysten/dapp-kit'
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit'
 import { buildCreateContractTx } from '@/service/PactdaService'
 
 
@@ -71,6 +71,8 @@ const ContractForm = () => {
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
   const [milestones, setMilestones] = useState<Milestone[]>([])
+    const currentAccount = useCurrentAccount()
+    const address = currentAccount?.address
 
   const addMilestone = () => {
     // ... keep existing code (milestone adding logic)
@@ -125,7 +127,7 @@ const ContractForm = () => {
           title="Parties Involved"
           subtitle="You (Party A - Initiator)"
         >
-          <PartyInformation />
+          <PartyInformation address={address} />
         </FormSection>
       </motion.div>
 

@@ -1,68 +1,75 @@
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { useRef } from 'react'
 
 interface ContractTermsProps {
-  startDate: Date | undefined;
-  endDate: Date | undefined;
-  setStartDate: (date: Date | undefined) => void;
-  setEndDate: (date: Date | undefined) => void;
+  startDate: Date | undefined
+  endDate: Date | undefined
+  setStartDate: (date: Date | undefined) => void
+  setEndDate: (date: Date | undefined) => void
 }
 
-const ContractTerms = ({ 
-  startDate, 
-  endDate, 
-  setStartDate, 
-  setEndDate 
+const ContractTerms = ({
+  startDate,
+  endDate,
+  setStartDate,
+  setEndDate,
 }: ContractTermsProps) => {
-  // Simple date input handlers
+  const startRef = useRef<HTMLInputElement>(null)
+  const endRef = useRef<HTMLInputElement>(null)
+
   const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const date = e.target.value ? new Date(e.target.value) : undefined;
-    setStartDate(date);
-  };
+    const date = e.target.value ? new Date(e.target.value) : undefined
+    setStartDate(date)
+  }
 
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const date = e.target.value ? new Date(e.target.value) : undefined;
-    setEndDate(date);
-  };
+    const date = e.target.value ? new Date(e.target.value) : undefined
+    setEndDate(date)
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
+          <label className="block text-md font-semibold text-indigo-400 mb-2">
             Start Date
           </label>
-          <Input 
+          <Input
             type="date"
             value={startDate ? startDate.toISOString().split('T')[0] : ''}
             onChange={handleStartDateChange}
-            className="bg-slate-800/30 border-slate-700/50 text-white"
+            className="bg-slate-800/30 border border-slate-700/50 text-white focus:border-indigo-500 focus:ring focus:ring-indigo-500/20 rounded-lg transition"
+            ref={startRef}
+            onFocus={() => startRef.current?.showPicker()}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
+          <label className="block text-md font-semibold text-indigo-400 mb-2">
             End Date
           </label>
-          <Input 
+          <Input
             type="date"
             value={endDate ? endDate.toISOString().split('T')[0] : ''}
             onChange={handleEndDateChange}
-            className="bg-slate-800/30 border-slate-700/50 text-white"
+            className="bg-slate-800/30 border border-slate-700/50 text-white focus:border-indigo-500 focus:ring focus:ring-indigo-500/20 rounded-lg transition"
+            ref={endRef}
+            onFocus={() => endRef.current?.showPicker()}
           />
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
+        <label className="block text-md font-semibold text-indigo-400 mb-2">
           Contract Summary
         </label>
         <textarea
           placeholder="Brief description of the agreement terms..."
           rows={4}
-          className="w-full rounded-md bg-slate-800/30 border-slate-700/50 text-white p-2"
+          className="w-full rounded-lg bg-slate-800/30 border border-slate-700/50 text-white p-3 focus:border-indigo-500 focus:ring focus:ring-indigo-500/20 transition"
         />
       </div>
-    </div>
-  );
-};
+    </>
+  )
+}
 
-export default ContractTerms;
+export default ContractTerms

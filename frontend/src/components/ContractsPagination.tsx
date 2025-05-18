@@ -7,12 +7,17 @@ const ITEMS_PER_PAGE = 10
 const PACKAGE_ID = import.meta.env.VITE_PACKAGE_ID
 const MODULE_NAME = import.meta.env.VITE_MODULE_NAME
 
-export default function ContractsPagination() {
+interface ContractsPaginationProps {
+  role: string
+  type: string
+  searchKey: string
+}
+
+export default function ContractsPagination({role, type, searchKey}: ContractsPaginationProps) {
   const currentAccount = useCurrentAccount()
   const address = currentAccount?.address
   const [allContracts, setAllContracts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('partyA')
   const [currentPage, setCurrentPage] = useState(1)
   const [isCacheLoaded, setIsCacheLoaded] = useState(false)
 
@@ -59,7 +64,7 @@ export default function ContractsPagination() {
 
         allFetchedContracts = [
           ...allFetchedContracts,
-          ...response.data.map((event) => event.parsedJson),
+          ...response.data.map((event) =>  event.parsedJson),
         ]
 
         if (response.hasNextPage) {
@@ -93,10 +98,7 @@ export default function ContractsPagination() {
   useEffect(() => {
     fetchAllContracts()
   }, [fetchAllContracts])
-  // Reset to page 1 when changing tabs
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [activeTab])
+
 
   // Filter contracts based on active tab
   const filteredContracts = useMemo(() => {
@@ -106,29 +108,16 @@ export default function ContractsPagination() {
       const content = contract
       if (!content) return false
 
-      switch (activeTab) {
+      switch (role) {
         case 'partyA':
           return content.party_a === address
         case 'partyB':
           return content.party_b === address
-        // case 'crossChain':
-        //   if (!content.cross_chain_parties?.fields?.vec?.fields) return false
-        //   const parties = content.cross_chain_parties.fields.vec.fields
-        //   return parties.some(
-        //     (party) =>
-        //       party.fields.role === 1 && // PARTY_ROLE_B
-        //       // You'd replace these with actual values from connected wallets
-        //       party.fields.chain_id === yourCrossChainId &&
-        //       compareAddressBytes(
-        //         party.fields.party_address,
-        //         yourCrossChainAddressBytes,
-        //       ),
-        //   )
         default:
-          return false
+          return  content.party_a === address || content.party_b === address
       }
     })
-  }, [allContracts, activeTab, address])
+  }, [allContracts, role, address])
 
   // Calculate pagination
   const paginatedContracts = useMemo(() => {
@@ -191,24 +180,6 @@ export default function ContractsPagination() {
 
   return (
     <div className="contracts-container p-4">
-      {/* Tab Navigation */}
-      {/* <div className="flex gap-2 mb-6">
-      {['partyA', 'partyB'].map((tab) => (
-        <button
-          key={tab}
-          className={`px-4 py-2 rounded-md font-medium text-sm transition-all duration-200
-            ${
-              activeTab === tab
-                ? 'bg-[#3B82F6] text-white shadow'
-                : 'bg-[#1E293B] text-gray-300 hover:bg-[#374151]'
-            }`}
-          onClick={() => setActiveTab(tab)}
-        >
-          {tab === 'partyA' ? "I'm Party A" : "I'm Party B"} ({filteredContracts.length})
-        </button>
-      ))}
-    </div> */}
-
       {/* Loading or Empty State */}
       {loading && !isCacheLoaded ? (
         <div className="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -222,9 +193,9 @@ export default function ContractsPagination() {
       ) : (
         <>
           {/* Contracts Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div >
             {paginatedContracts.map((contract) => (
-              <ContractCard key={contract.id} contract={contract} />
+              <ContractCard key={contract.contract_id} contract={contract} address={address}/>
             ))}
           </div>
 
@@ -291,37 +262,11 @@ export default function ContractsPagination() {
               total)
             </div>
           </div>
-
-          {/* Refresh Button */}
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={() => {
-                localStorage.removeItem('pactda-contracts-cache')
-                setIsCacheLoaded(false)
-                fetchAllContracts()
-              }}
-              className="bg-[#3B82F6] hover:bg-[#2563EB] text-white font-semibold text-sm px-4 py-2 rounded-md shadow-md transition-all duration-200"
-            >
-              🔄 Refresh Contracts
-            </button>
-          </div>
+   
         </>
       )}
     </div>
   )
-}
-
-// Helper functions
-function renderStatus(status: number): string {
-  const statusMap = {
-    0: 'Draft',
-    1: 'Pending',
-    2: 'Active',
-    3: 'Disputed',
-    4: 'Completed',
-    5: 'Cancelled',
-  }
-  return statusMap[status as keyof typeof statusMap] || 'Unknown'
 }
 
 function truncateAddress(address: string): string {

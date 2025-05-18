@@ -22,12 +22,24 @@ const MODULE_NAME = import.meta.env.VITE_MODULE_NAME
 const Dashboard = () => {
   const [contracts, setContracts] = useState<any[] | null>(null)
   const [search, setSearch] = useState('')
-  const suiClient = useSuiClient()
-  const suiAccount = useCurrentAccount()
+  const [roleSelected, setRoleSelected] = useState('')
+  const [typeSelected, setTypeSelected] = useState('')
   const navigate = useNavigate()
 
   const onCreateContract = () => {
     navigate('/create-contract')
+  }
+
+  const handleRoleChange = (role: string) => {
+    setRoleSelected(role)
+  }
+
+  const handleTypeChange = (type: string) => {
+    setTypeSelected(type)
+  }
+
+  const handleSearchKeyChange = (key: string) => {
+    setSearch(key)
   }
 
   return (
@@ -55,45 +67,44 @@ const Dashboard = () => {
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <input
                 type="text"
+                onChange={(e) => handleSearchKeyChange(e.target.value)}
+                value={search}
                 placeholder="Search by title or ID..."
-                className="bg-[#1E293B] text-sm text-white placeholder-gray-400 border border-[#334155] rounded-md px-3 py-2 w-full sm:w-auto md:w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="bg-[#1E293B] text-sm text-white placeholder-gray-400 border border-[#334155] rounded-md px-3 py-2 w-full sm:w-auto md:w-78 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
 
-              <select className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="pending">Pending Signatures</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="disputed">Disputed</option>
-                <option value="cancelled">Cancelled</option>
+              <select
+                onChange={(e) => handleRoleChange(e.target.value)}
+                value={roleSelected}
+                className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Roles</option>
+                <option value="partyA">I'm Party A</option>
+                <option value="partyB">I'm Party B</option>
               </select>
 
-              <select className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select
+                onChange={(e) => handleTypeChange(e.target.value)}
+                value={typeSelected}
+                className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="">All Types</option>
                 <option value="general">General</option>
                 <option value="art">Art</option>
                 <option value="programming">Programming</option>
                 <option value="audit">Audit</option>
               </select>
-
-              <select className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-36 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">All Roles</option>
-                <option value="partyA">I'm Party A</option>
-                <option value="partyB">I'm Party B</option>
-                <option value="both">Both Roles</option>
-              </select>
             </div>
 
             <button
               onClick={onCreateContract}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-md shadow w-full md:w-auto text-center transition-all duration-200 flex items-center justify-center gap-2"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-md shadow w-full md:w-auto text-center transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <span className="text-lg">+</span> Create New Agreement
             </button>
           </div>
 
-          <ContractsPagination />
+          <ContractsPagination role={roleSelected} type={typeSelected} searchKey={search} />
         </motion.div>
       </div>
     </div>
