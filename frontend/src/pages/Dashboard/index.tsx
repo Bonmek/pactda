@@ -104,7 +104,11 @@ const Dashboard = () => {
             </button>
           </div>
 
-          <ContractsPagination role={roleSelected} type={typeSelected} searchKey={search} />
+          <ContractsPagination
+            role={roleSelected}
+            type={typeSelected}
+            searchKey={search}
+          />
         </motion.div>
       </div>
     </div>

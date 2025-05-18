@@ -103,9 +103,11 @@ export default function ContractDetail() {
                 >
                   {contract && (
                     <>
-                      <ActionsCard onSign={function (): void {
-                        throw new Error('Function not implemented.')
-                      } } />
+                      <ActionsCard
+                        onSign={function (): void {
+                          throw new Error('Function not implemented.')
+                        }}
+                      />
                       <ActivityTimelineCard activities={[]} />
                     </>
                   )}

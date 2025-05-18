@@ -1,2 +1,2 @@
-export { SuiWalletCard } from './SuiWalletCard';
-export { MetaMaskWalletCard } from './MetaMaskWalletCard';
+export { SuiWalletCard } from './SuiWalletCard'
+export { MetaMaskWalletCard } from './MetaMaskWalletCard'

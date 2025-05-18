@@ -38,30 +38,23 @@ export default function Home() {
           ></motion.div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.2 }}
-          className="max-w-4xl mx-auto mt-[-10vh] relative z-10"
-        >
+        <div className="max-w-4xl mx-auto mt-[-10vh] relative z-10">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
+            whileHover={{
+              scale: 1.03,
+              transition: { type: 'spring', stiffness: 300 },
+            }}
+            whileTap={{ scale: 0.97 }}
+            className="cursor-pointer"
           >
-            <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-blue-100 mb-6 tracking-tight leading-tight">
+            <h1 className="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-blue-100 mb-6 tracking-tight leading-tight header-hover bg-size-200 bg-pos-0">
               <span className="inline-block">PactDa: </span>
               <span className="inline-block">Decentralized Trust</span>
               <span className="block mt-2 pb-2">for Digital Agreements</span>
             </h1>
           </motion.div>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-lg md:text-xl text-blue-200 mb-10 max-w-3xl mx-auto leading-relaxed"
-          >
+          <motion.p className="text-lg md:text-xl text-blue-200 mb-10 max-w-3xl mx-auto leading-relaxed">
             Securely create, manage, and enforce contracts across blockchains.
             <span className="block mt-2 text-blue-300 font-medium">
               Powered by Sui's speed, bridged by Wormhole for multi-chain
@@ -107,7 +100,7 @@ export default function Home() {
               </Button>
             </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
 
         {/* Decorative elements */}
         <motion.div
@@ -188,11 +181,7 @@ export default function Home() {
         className="min-h-screen flex items-center py-20 px-4 relative"
         id="features"
       >
-        {/* Background elements */}
-        <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-[#061429]/0 via-[#061429]/80 to-[#061429]/0"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-900/10 rounded-full blur-3xl"></div>
-        </div>
+        {/* Background elements removed for cleaner design */}
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -224,7 +213,7 @@ export default function Home() {
               transition={{ duration: 0.5, delay: 0.1 }}
               viewport={{ once: true }}
             >
-              <Card className="h-full bg-gradient-to-b from-[#061429]/80 to-[#05101f]/95 border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
+              <Card className="h-full border border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
                 <CardContent className="flex flex-col items-center text-center p-8">
                   <motion.div
                     whileHover={{ scale: 1.1, rotate: 5 }}
@@ -252,7 +241,7 @@ export default function Home() {
               transition={{ duration: 0.5, delay: 0.3 }}
               viewport={{ once: true }}
             >
-              <Card className="h-full bg-gradient-to-b from-[#061429]/80 to-[#05101f]/95 border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
+              <Card className="h-full border border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
                 <CardContent className="flex flex-col items-center text-center p-8">
                   <motion.div
                     whileHover={{ scale: 1.1, rotate: -5 }}
@@ -280,7 +269,7 @@ export default function Home() {
               transition={{ duration: 0.5, delay: 0.5 }}
               viewport={{ once: true }}
             >
-              <Card className="h-full bg-gradient-to-b from-[#061429]/80 to-[#05101f]/95 border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
+              <Card className="h-full border border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
                 <CardContent className="flex flex-col items-center text-center p-8">
                   <motion.div
                     whileHover={{ scale: 1.1, rotate: 5 }}

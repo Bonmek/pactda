@@ -1,18 +1,18 @@
-import { motion } from 'framer-motion';
-import DetailSection from './DetailSection';
+import { motion } from 'framer-motion'
+import DetailSection from './DetailSection'
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0 },
-};
+}
 
 interface Milestone {
-  name: string;
-  status: 'Completed' | 'In Progress' | 'Pending';
+  name: string
+  status: 'Completed' | 'In Progress' | 'Pending'
 }
 
 interface MilestonesCardProps {
-  milestones: Milestone[];
+  milestones: Milestone[]
 }
 
 const MilestonesCard: React.FC<MilestonesCardProps> = ({ milestones }) => (
@@ -22,7 +22,9 @@ const MilestonesCard: React.FC<MilestonesCardProps> = ({ milestones }) => (
         {milestones.map((milestone, index) => (
           <li key={index} className="text-sm">
             {milestone.name} -{' '}
-            <span className={`text-${milestone.status === 'Completed' ? 'green' : milestone.status === 'In Progress' ? 'yellow' : 'gray'}-400`}>
+            <span
+              className={`text-${milestone.status === 'Completed' ? 'green' : milestone.status === 'In Progress' ? 'yellow' : 'gray'}-400`}
+            >
               {milestone.status}
             </span>
           </li>
@@ -30,6 +32,6 @@ const MilestonesCard: React.FC<MilestonesCardProps> = ({ milestones }) => (
       </ul>
     </DetailSection>
   </motion.div>
-);
+)
 
-export default MilestonesCard;
+export default MilestonesCard

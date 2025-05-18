@@ -1,26 +1,26 @@
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
-import MilestoneItem from "./MilestoneItem";
+import { Button } from '@/components/ui/button'
+import { PlusCircle } from 'lucide-react'
+import MilestoneItem from './MilestoneItem'
 
 type Milestone = {
-  id: string;
-  title: string;
-  description: string;
-  value: string;
-};
+  id: string
+  title: string
+  description: string
+  value: string
+}
 
 interface MilestoneListProps {
-  milestones: Milestone[];
-  updateMilestone: (id: string, field: keyof Milestone, value: string) => void;
-  removeMilestone: (id: string) => void;
-  addMilestone: () => void;
+  milestones: Milestone[]
+  updateMilestone: (id: string, field: keyof Milestone, value: string) => void
+  removeMilestone: (id: string) => void
+  addMilestone: () => void
 }
 
 const MilestoneList = ({
   milestones,
   updateMilestone,
   removeMilestone,
-  addMilestone
+  addMilestone,
 }: MilestoneListProps) => {
   return (
     <div>
@@ -52,7 +52,7 @@ const MilestoneList = ({
         </Button>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default MilestoneList;
+export default MilestoneList

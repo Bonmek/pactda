@@ -7,6 +7,7 @@ import { injected } from '@wagmi/connectors'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getFullnodeUrl } from '@mysten/sui/client'
 import { AuthProvider } from './contexts/AuthContext'
+import { UIProvider } from './contexts/UIContext'
 
 const wagmiConfig = createConfig({
   chains: [mainnet],
@@ -14,7 +15,7 @@ const wagmiConfig = createConfig({
   transports: {
     [mainnet.id]: http(),
   },
-});
+})
 
 const networks = {
   devnet: { url: getFullnodeUrl('devnet') },
@@ -28,12 +29,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SuiClientProvider networks={networks} defaultNetwork="testnet">
-        <WalletProvider  autoConnect={true}>
+        <WalletProvider autoConnect={true}>
           <WagmiProvider config={wagmiConfig}>
-            <AuthProvider>{children}</AuthProvider>
+            <UIProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </UIProvider>
           </WagmiProvider>
         </WalletProvider>
       </SuiClientProvider>
     </QueryClientProvider>
-  );
+  )
 }

@@ -1,10 +1,10 @@
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { useState } from 'react'
 
 const EscrowPayment = () => {
-  const [currency, setCurrency] = useState("SUI");
-  
+  const [currency, setCurrency] = useState('SUI')
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -13,9 +13,9 @@ const EscrowPayment = () => {
             Total Contract Value
           </label>
           <div className="flex">
-            <Input 
+            <Input
               type="number"
-              placeholder="0.00" 
+              placeholder="0.00"
               className="bg-slate-800/30 border-slate-700/50 text-white rounded-r-none"
             />
             <div className="inline-flex">
@@ -32,9 +32,7 @@ const EscrowPayment = () => {
           <label className="block text-sm font-medium text-slate-300 mb-1">
             Escrow Release Condition
           </label>
-          <select 
-            className="w-full rounded-md bg-slate-800/30 border-slate-700/50 text-white p-2 h-10"
-          >
+          <select className="w-full rounded-md bg-slate-800/30 border-slate-700/50 text-white p-2 h-10">
             <option value="completion">Upon Completion</option>
             <option value="milestone">Per Milestone</option>
             <option value="date">On Specific Date</option>
@@ -52,7 +50,7 @@ const EscrowPayment = () => {
         />
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default EscrowPayment;
+export default EscrowPayment

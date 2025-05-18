@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   useCurrentAccount,
   useDisconnectWallet,
@@ -23,6 +23,7 @@ const Header: React.FC<HeaderProps> = ({
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
 
   // ใช้ useAuth hook จาก context
   const { login, logout, zkloginAddress } = useAuth()
@@ -188,74 +189,346 @@ const Header: React.FC<HeaderProps> = ({
     }
   }, [])
 
+  // Mouse parallax state
+  const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 })
+  // Listen for mouse movement for parallax
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const x = e.clientX / window.innerWidth
+      const y = e.clientY / window.innerHeight
+      setMouse({ x, y })
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
+  // Ripple effect for clicks
+  const [ripples, setRipples] = useState<
+    { x: number; y: number; key: number }[]
+  >([])
+  const rippleRef = useRef<HTMLDivElement>(null)
+  const handleGlobalClick = (e: React.MouseEvent) => {
+    if (!rippleRef.current) return
+    const rect = rippleRef.current.getBoundingClientRect()
+    setRipples((ripples) => [
+      ...ripples,
+      {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+        key: Date.now() + Math.random(),
+      },
+    ])
+    setTimeout(() => setRipples((ripples) => ripples.slice(1)), 600)
+  }
+
   return (
-    <header className="w-full py-4 border-b border-gray-800 z-99">
-      <div className="container mx-auto px-4 flex justify-between items-center">
-        <div className="flex items-center">
-          <Link to="/" className="text-2xl font-bold text-blue-500">
-            PactDA
-          </Link>
-          <nav className="hidden md:flex ml-8">
-            <Link
-              to="/"
-              className="mx-2 text-gray-300 hover:text-white transition"
-            >
-              Home
-            </Link>
-            <Link
-              to="/token-bridge"
-              className="mx-2 text-gray-300 hover:text-white transition"
-            >
-              Token Bridge
-            </Link>
-            <Link
-              to="/about"
-              className="mx-2 text-gray-300 hover:text-white transition"
-            >
-              About
-            </Link>
-            <Link
-              to="/docs"
-              className="mx-2 text-gray-300 hover:text-white transition"
-            >
-              Docs
-            </Link>
-          </nav>
-        </div>
-
-        {/* Wallet Selector in header */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            disabled={isLoading}
-            onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
-            className={`${isWalletConnected || isLoading ? 'bg-gray-800 border border-gray-600' : 'bg-blue-700 hover:bg-blue-800'} text-white font-medium py-2 px-6 rounded-lg transition flex items-center gap-2`}
+    <>
+      {/* Global animated background with parallax and mouse interaction */}
+      <div
+        ref={rippleRef}
+        className="fixed inset-0 -z-10 overflow-hidden select-none pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse at ${mouse.x * 100}% ${mouse.y * 100}%, #1e293b 60%, #0f172a 100%)`,
+        }}
+      >
+        {/* Parallax SVGs */}
+        <svg
+          className="absolute left-0 top-0 w-96 h-96 opacity-30"
+          style={{
+            transform: `translate(${mouse.x * 40}px,${mouse.y * 40}px)`,
+          }}
+          viewBox="0 0 96 96"
+          fill="none"
+        >
+          <circle
+            cx="48"
+            cy="48"
+            r="46"
+            stroke="#7c3aed"
+            strokeWidth="4"
+            fill="#a5b4fc22"
+          />
+        </svg>
+        <svg
+          className="absolute right-0 top-0 w-72 h-72 opacity-20"
+          style={{
+            transform: `translate(${-mouse.x * 40}px,${mouse.y * 30}px)`,
+          }}
+          viewBox="0 0 72 72"
+          fill="none"
+        >
+          <rect
+            x="8"
+            y="8"
+            width="56"
+            height="56"
+            rx="16"
+            fill="#f472b6"
+            fillOpacity="0.15"
+            stroke="#f472b6"
+            strokeWidth="2"
+          />
+        </svg>
+        <svg
+          className="absolute left-1/2 -translate-x-1/2 top-1/2 w-[500px] h-[500px] opacity-10"
+          style={{
+            transform: `translate(-50%,-50%) scale(${1 + mouse.x * 0.2})`,
+          }}
+          viewBox="0 0 500 500"
+          fill="none"
+        >
+          <ellipse
+            cx="250"
+            cy="250"
+            rx="200"
+            ry="100"
+            fill="#a21caf"
+            fillOpacity="0.10"
+          />
+        </svg>
+        {/* Mouse click ripples */}
+        {ripples.map((r) => (
+          <span
+            key={r.key}
+            className="pointer-events-none absolute rounded-full bg-white/20 blur-2xl animate-ping"
+            style={{ left: r.x - 100, top: r.y - 100, width: 200, height: 200 }}
+          />
+        ))}
+      </div>
+      <header
+        className="w-full py-4 border-b border-gray-800 z-50 bg-gradient-to-r from-[#0c1225]/90 via-[#1a237e]/80 to-[#0f172a]/90 shadow-xl backdrop-blur-xl relative overflow-visible"
+        onClick={handleGlobalClick}
+      >
+        {/* Animated SVG background icons (header layer) */}
+        <div className="absolute left-0 top-0 w-full h-full pointer-events-none z-0">
+          <svg
+            className="absolute left-8 top-2 w-12 h-12 opacity-60"
+            viewBox="0 0 48 48"
+            fill="none"
           >
-            {isLoading ? (
-              <span>Loading...</span>
-            ) : isWalletConnected ? (
-              <>
-                <span
-                  className={
-                    selectedWalletType === 'sui'
-                      ? 'text-blue-400'
-                      : selectedWalletType === 'metamask'
-                        ? 'text-yellow-500'
-                        : 'text-red-400'
-                  }
+            <circle
+              cx="24"
+              cy="24"
+              r="22"
+              stroke="#7c3aed"
+              strokeWidth="4"
+              fill="#a5b4fc22"
+            />
+          </svg>
+          <svg
+            className="absolute right-8 top-4 w-10 h-10 opacity-50"
+            viewBox="0 0 40 40"
+            fill="none"
+          >
+            <rect
+              x="4"
+              y="4"
+              width="32"
+              height="32"
+              rx="8"
+              fill="#f472b6"
+              fillOpacity="0.15"
+              stroke="#f472b6"
+              strokeWidth="2"
+            />
+          </svg>
+          <svg
+            className="absolute left-1/2 -translate-x-1/2 top-0 w-16 h-16 opacity-30"
+            viewBox="0 0 64 64"
+            fill="none"
+          >
+            <polygon
+              points="32,8 56,56 8,56"
+              fill="#38bdf8"
+              fillOpacity="0.12"
+            />
+          </svg>
+          <svg
+            className="absolute right-24 bottom-0 w-14 h-14 opacity-40"
+            viewBox="0 0 48 48"
+            fill="none"
+          >
+            <ellipse
+              cx="24"
+              cy="24"
+              rx="20"
+              ry="10"
+              fill="#a21caf"
+              fillOpacity="0.10"
+            />
+          </svg>
+        </div>
+        <div className="container mx-auto px-4 flex justify-between items-center relative z-10">
+          <div className="flex items-center gap-4">
+            <Link to="/" className="flex items-center gap-2 group">
+              {/* Redesigned PactDA Logo */}
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-400 flex items-center justify-center rounded-lg shadow-lg relative overflow-hidden border border-indigo-400/30">
+                <div className="absolute inset-0 bg-grid-white/10 bg-grid-8"></div>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="relative z-10"
                 >
-                  {selectedWalletType === 'sui'
-                    ? '⚡ Sui: '
-                    : selectedWalletType === 'metamask'
-                      ? '🦊 MetaMask: '
-                      : '🔐 Zklogin: '}
-                </span>
-                <span className="font-mono">
-                  {truncateAddress(getConnectedAddress() || '')}
-                </span>
+                  <path
+                    d="M12 2L4 6V12C4 15.31 7.58 20 12 22C16.42 20 20 15.31 20 12V6L12 2Z"
+                    stroke="white"
+                    strokeWidth="2"
+                    fill="rgba(255,255,255,0.1)"
+                  />
+                  <path
+                    d="M8 11L11 14L16 9"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-transform duration-300">
+                PactDA
+              </span>
+            </Link>
+            <nav className="hidden md:flex ml-8 gap-2">
+              <Link
+                to="/"
+                className="mx-2 flex items-center gap-1 text-gray-300 hover:text-white transition font-semibold hover:scale-105 duration-200"
+              >
+                <svg
+                  className="w-5 h-5 text-blue-400 "
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Home
+              </Link>
+              <Link
+                to="/workflow"
+                className="mx-2 flex items-center gap-1 text-gray-300 hover:text-white transition font-semibold hover:scale-105 duration-200"
+              >
+                <svg
+                  className="w-5 h-5 text-cyan-400 "
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M4 17v-2a4 4 0 014-4h8a4 4 0 014 4v2"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle
+                    cx="12"
+                    cy="7"
+                    r="4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                </svg>
+                Workflow
+              </Link>
+              <Link
+                to="/how-to-use"
+                className="mx-2 flex items-center gap-1 text-gray-300 hover:text-white transition font-semibold hover:scale-105 duration-200"
+              >
+                <svg
+                  className="w-5 h-5 text-amber-400 "
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M12 20h9"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M12 4v16m0 0l-4-4m4 4l4-4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                How To Use
+              </Link>
+              <Link
+                to="/about"
+                className="mx-2 flex items-center gap-1 text-gray-300 hover:text-white transition font-semibold hover:scale-105 duration-200"
+              >
+                <svg
+                  className="w-5 h-5 text-pink-400 "
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M12 16v-4m0-4h.01"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                About
+              </Link>
+              <Link
+                to="/docs"
+                className="mx-2 flex items-center gap-1 text-gray-300 hover:text-white transition font-semibold hover:scale-105 duration-200"
+              >
+                <svg
+                  className="w-5 h-5 text-green-400 "
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <rect
+                    x="4"
+                    y="4"
+                    width="16"
+                    height="16"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M8 8h8M8 12h8M8 16h4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Docs
+              </Link>
+            </nav>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              className="relative px-6 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold border border-indigo-500/50 shadow-lg group overflow-hidden rounded-md backdrop-blur-sm"
+              onClick={(e) => {
+                navigate('/create-contract')
+              }}
+            >
+              <div className="absolute inset-0 bg-grid-white/[0.05] bg-grid-6"></div>
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur"></div>
+              <span className="relative z-10 flex items-center gap-2">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -263,168 +536,185 @@ const Header: React.FC<HeaderProps> = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <polyline points="6 9 12 15 18 9"></polyline>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
                 </svg>
-              </>
-            ) : (
-              <>
-                Connect Wallet
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </>
-            )}
-          </button>
-
-          {walletDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-10">
-              {isWalletConnected ? (
-                <div className="p-4">
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-400 mb-1">
-                      Connected to{' '}
-                      {selectedWalletType === 'sui' ? 'Sui Wallet' : 'MetaMask'}
-                    </p>
-                    <div className="p-2 bg-gray-900 rounded-md font-mono text-xs break-all">
-                      {getConnectedAddress()}
+                Contract
+              </span>
+            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                disabled={isLoading}
+                onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
+                className={`wallet-btn relative flex items-center gap-2 px-4 py-2 rounded-md border ${
+                  isWalletConnected || isLoading
+                    ? 'bg-gray-900 border-indigo-500/30'
+                    : 'bg-indigo-600 border-blue-400/30'
+                } text-white font-medium shadow-md transition-all duration-200 overflow-hidden`}
+              >
+                <div className="absolute inset-0 bg-grid-white/[0.05] bg-grid-6"></div>
+                {isLoading ? (
+                  <span className="relative z-10 flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Loading...
+                  </span>
+                ) : isWalletConnected ? (
+                  <>
+                    <span className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-700 border border-indigo-400/30 font-mono text-sm relative z-10">
+                      {getConnectedAddress()?.slice(2, 4) || 'U'}
+                    </span>
+                    <span className="font-mono text-sm relative z-10">
+                      {truncateAddress(getConnectedAddress() || '')}
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="relative z-10"
+                    >
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-700 border border-indigo-400/30 relative z-10">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                      </svg>
+                    </span>
+                    <span className="relative z-10">Connect</span>
+                  </>
+                )}
+              </button>
+              {walletDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-gray-900 border border-indigo-500/30 rounded-md shadow-2xl z-50 backdrop-blur-sm overflow-hidden">
+                  <div className="absolute inset-0 bg-grid-white/[0.02] bg-grid-6"></div>
+                  {isWalletConnected ? (
+                    <div className="p-4 relative z-10">
+                      <div className="mb-4">
+                        <p className="text-sm text-indigo-400 mb-1">Connected</p>
+                        <div className="p-2 bg-gray-800/70 rounded border border-indigo-500/20 font-mono text-xs break-all">
+                          {getConnectedAddress()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleDisconnect}
+                        className="w-full text-left px-4 py-2 bg-red-700/80 hover:bg-red-800 text-white rounded flex items-center justify-center gap-2 font-semibold transition-all duration-200 border border-red-500/30"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                          <polyline points="16 17 21 12 16 7"></polyline>
+                          <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        Disconnect
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    onClick={handleDisconnect}
-                    className="w-full text-left px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-md flex items-center justify-center gap-2"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                      <polyline points="16 17 21 12 16 7"></polyline>
-                      <line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
-                    Disconnect
-                  </button>
-                </div>
-              ) : (
-                <div className="p-2">
-                  <button
-                    onClick={handleConnectSui}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
-                    </svg>
-                    Sui Wallet
-                  </button>
-                  <button
-                    onClick={handleConnectMetaMask}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m7.3 14.7 1.2-1.2m1.8-1.8 1.5-1.5"></path>
-                      <circle cx="13" cy="14" r="3"></circle>
-                      <path d="M14.5 9.5 17 7l4 1-6 6-5-3 1.5-2.5Z"></path>
-                      <path d="M19.9 8.1a2 2 0 0 1 0 2.7l-6.8 6.8a2 2 0 0 1-2.7 0l-7-7a2 2 0 0 1 0-2.7l6.7-6.7a2 2 0 0 1 2.7 0Z"></path>
-                    </svg>
-                    MetaMask
-                  </button>
-                  <div className="flex items-center my-3 text-gray-400 text-sm">
-                    <div className="flex-grow border-t border-gray-600"></div>
-                    <span className="px-2">zkLogin</span>
-                    <div className="flex-grow border-t border-gray-600"></div>
-                  </div>
-                  <button
-                    onClick={handleConnectGoogle}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 533.5 544.3"
-                    >
-                      <path
-                        fill="#4285F4"
-                        d="M533.5 278.4c0-18.5-1.5-37.3-4.7-55.3H272v104.7h146.9c-6.3 34.4-25 63.5-53.4 83.1v68.7h86.1c50.4-46.4 81.9-114.8 81.9-201.2z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M272 544.3c72.6 0 133.5-23.9 178-64.9l-86.1-68.7c-23.9 16.1-54.4 25.6-91.9 25.6-70.7 0-130.6-47.9-152.1-112.1H30.5v70.7c44.3 87.5 134.7 149.4 241.5 149.4z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M119.9 323.9c-10.6-31.4-10.6-65.6 0-97l-70.3-70.7C15.2 203.6 0 240.3 0 278.4s15.2 74.8 49.6 122.2l70.3-76.7z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M272 107.7c39.6 0 75.1 13.5 103.2 39.7l77.2-77.2C405.5 24.4 344.6 0 272 0 165.2 0 74.8 61.9 30.5 149.4l89.4 77.2c21.5-64.2 81.4-112.1 152.1-112.1z"
-                      />
-                    </svg>
-                    <span>Google</span>
-                  </button>
-                  <button
-                    onClick={handleConnectFacebook}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-200 rounded-md flex items-center gap-2"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 32 32"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        fill="#1877F2"
-                        d="M32 16a16 16 0 1 0-18.5 15.8V20.7h-4v-4.7h4v-3.6c0-4 2.4-6.2 6-6.2 1.7 0 3.4.3 3.4.3v3.8H21c-2 0-2.6 1.2-2.6 2.5v3.2h4.4l-.7 4.7h-3.7v11.1A16 16 0 0 0 32 16z"
-                      />
-                      <path
-                        fill="#FFF"
-                        d="M22.1 20.7l.7-4.7h-4.4v-3.2c0-1.3.6-2.5 2.6-2.5h1.9V6.5s-1.6-.3-3.4-.3c-3.6 0-6 2.2-6 6.2v3.6h-4v4.7h4v11.1a16.1 16.1 0 0 0 5 0V20.7h3.6z"
-                      />
-                    </svg>
-
-                    <span>Facebook</span>
-                  </button>
+                  ) : (
+                    <div className="p-2 relative z-10">
+                      <button
+                        onClick={handleConnectSui}
+                        className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-blue-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                          <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                          <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                        </svg>
+                        Sui Wallet
+                      </button>
+                      <button
+                        onClick={handleConnectMetaMask}
+                        className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-yellow-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"></path>
+                        </svg>
+                        MetaMask
+                      </button>
+                      <div className="flex items-center my-3 text-gray-400 text-sm">
+                        <div className="flex-grow border-t border-gray-700"></div>
+                        <span className="px-2">zkLogin</span>
+                        <div className="flex-grow border-t border-gray-700"></div>
+                      </div>
+                      <button
+                        onClick={handleConnectGoogle}
+                        className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-red-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <circle cx="12" cy="10" r="3"></circle>
+                          <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"></path>
+                        </svg>
+                        Google
+                      </button>
+                      <button
+                        onClick={handleConnectFacebook}
+                        className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-blue-400 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect width="20" height="20" x="2" y="2" rx="5"></rect>
+                          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                        </svg>
+                        Facebook
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+    </>
   )
 }
 

@@ -1,4 +1,4 @@
-import { Input } from "@/components/ui/input";
+import { Input } from '@/components/ui/input'
 
 const AdditionalInformation = () => {
   return (
@@ -7,8 +7,8 @@ const AdditionalInformation = () => {
         <label className="block text-sm font-medium text-slate-300 mb-1">
           External Links
         </label>
-        <Input 
-          placeholder="e.g., Project documentation, design files, etc." 
+        <Input
+          placeholder="e.g., Project documentation, design files, etc."
           className="bg-slate-800/30 border-slate-700/50 text-white"
         />
       </div>
@@ -23,7 +23,7 @@ const AdditionalInformation = () => {
         />
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default AdditionalInformation;
+export default AdditionalInformation

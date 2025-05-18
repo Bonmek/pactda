@@ -1,0 +1,185 @@
+/* Global styles for the PactDA application */
+
+/* Animation Keyframes */
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradient-x {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Animation Classes */
+.animate-ripple {
+  animation: ripple 0.6s linear forwards;
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+.animate-float2 {
+  animation: float 7s ease-in-out infinite;
+}
+
+.animate-float3 {
+  animation: float 9s ease-in-out infinite;
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 6s ease-in-out infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(31, 41, 55, 0) 0%,
+    rgba(59, 130, 246, 0.1) 50%,
+    rgba(31, 41, 55, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Card styles */
+.card {
+  @apply bg-gray-900 bg-opacity-70 rounded-xl p-6 shadow-lg;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+}
+
+/* Button styles */
+.button-glow {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s ease;
+}
+
+.button-glow:hover {
+  box-shadow: 0 6px 20px rgba(138, 75, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.button-glow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition:
+    width 0.5s ease,
+    height 0.5s ease,
+    opacity 0.5s ease;
+}
+
+.button-glow:active::after {
+  width: 300px;
+  height: 300px;
+  opacity: 1;
+  transition: 0s;
+}
+
+/* Typography */
+.gradient-text {
+  @apply text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400;
+}
+
+/* Layout elements */
+.glass-panel {
+  @apply bg-gray-900 bg-opacity-70 backdrop-blur-lg border border-gray-800 border-opacity-50 rounded-xl;
+}
+
+/* Grid patterns for futuristic UI */
+.bg-grid-white {
+  --grid-size: 24px;
+  --grid-strength: 1;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, var(--grid-strength)) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, var(--grid-strength)) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+}
+
+.bg-grid-6 {
+  --grid-size: 6px;
+}
+
+.bg-grid-8 {
+  --grid-size: 8px;
+}
+
+.bg-grid-12 {
+  --grid-size: 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .animate-float,
+  .animate-float2,
+  .animate-float3 {
+    animation-duration: 4s;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-3px);
+  }
+}

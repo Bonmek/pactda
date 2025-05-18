@@ -45,7 +45,9 @@ export const ContractCard: React.FC<Props> = ({ contract, address }) => {
             Other Party:{' '}
             <span className="inline-block w-4 h-4 rounded-full bg-[#4b5563] mr-1 align-middle"></span>
             <span className="font-mono text-xs">
-              {contract.party_a == address ? truncateAddress(contract.party_a) : truncateAddress(contract.party_b)}
+              {contract.party_a == address
+                ? truncateAddress(contract.party_a)
+                : truncateAddress(contract.party_b)}
             </span>
           </p>
           <p className="text-sm text-gray-300 mb-1">

@@ -3,16 +3,21 @@ import React, { useState } from 'react'
 import Layout from './components/Layout/Layout'
 import Index from './pages/Index'
 import Notfound from './pages/Notfound'
-import TokenBridge from './pages/TokenBridge'
+import Workflow from './pages/Workflow'
+import HowToUse from './pages/HowToUse'
 import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import CreateContract from './pages/CreateContract'
 import ContractDetail from './pages/ContractDetail'
 import Home from './pages/Home'
+import About from './pages/About'
+import Docs from './pages/Docs'
 
 interface HomeProps {
   selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
-  setSelectedWalletType: (type: 'sui' | 'metamask' | 'google' | 'facebook' | null) => void
+  setSelectedWalletType: (
+    type: 'sui' | 'metamask' | 'google' | 'facebook' | null,
+  ) => void
 }
 
 type ChildProps = HomeProps
@@ -47,8 +52,20 @@ export const router = createBrowserRouter([
     element: <RouteWrapper component={Home} />,
   },
   {
-    path: '/token-bridge',
-    element: <RouteWrapper component={TokenBridge} />,
+    path: '/workflow',
+    element: <RouteWrapper component={Workflow} />,
+  },
+  {
+    path: '/how-to-use',
+    element: <RouteWrapper component={HowToUse} />,
+  },
+  {
+    path: '/about',
+    element: <RouteWrapper component={About} />,
+  },
+  {
+    path: '/docs',
+    element: <RouteWrapper component={Docs} />,
   },
   {
     path: '/callback',
@@ -69,5 +86,5 @@ export const router = createBrowserRouter([
   {
     path: '/contract/:id',
     element: <RouteWrapper component={ContractDetail} />,
-  }
+  },
 ])

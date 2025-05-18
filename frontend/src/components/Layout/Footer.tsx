@@ -1,94 +1,157 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from 'react'
+import { Link } from 'react-router-dom'
 
 const Footer: React.FC = () => {
   return (
-    <footer className="w-full py-8 border-t border-gray-800 bg-gray-900 mt-auto">
+    <footer className="w-full py-10 border-t border-blue-900 bg-gray-900 mt-auto relative overflow-hidden">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-xl font-bold text-blue-400 mb-4">PactDA</h3>
+            <h3 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-4">
+              PactDA
+            </h3>
             <p className="text-gray-400">
-              Decentralized application platform enabling cross-chain communication 
-              built on Sui network with Wormhole integration.
+              Decentralized application platform enabling cross-chain
+              communication built on Sui network with Wormhole integration.
             </p>
+            <div className="flex gap-2 mt-4">
+              {' '}
+              <span className="inline-block px-3 py-1 bg-blue-900 bg-opacity-60 rounded-full text-xs text-blue-300 font-semibold">
+                Audited
+              </span>
+              <span className="inline-block px-3 py-1 bg-green-900 bg-opacity-60 rounded-full text-xs text-green-300 font-semibold">
+                Secure
+              </span>
+              <span className="inline-block px-3 py-1 bg-purple-900 bg-opacity-60 rounded-full text-xs text-purple-300 font-semibold">
+                Web3 Ready
+              </span>
+            </div>
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Links</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/" className="text-gray-400 hover:text-blue-400 transition">
+                <Link
+                  to="/"
+                  className="text-gray-400 hover:text-blue-400 transition"
+                >
                   Home
                 </Link>
               </li>
               <li>
-                <Link to="/about" className="text-gray-400 hover:text-blue-400 transition">
+                <Link
+                  to="/about"
+                  className="text-gray-400 hover:text-blue-400 transition"
+                >
                   About
                 </Link>
               </li>
               <li>
-                <Link to="/docs" className="text-gray-400 hover:text-blue-400 transition">
+                <Link
+                  to="/docs"
+                  className="text-gray-400 hover:text-blue-400 transition"
+                >
                   Documentation
                 </Link>
               </li>
             </ul>
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Community</h3>
-            <ul className="space-y-2">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">
+              Community
+            </h3>
+            <ul className="flex gap-4 mt-2">
               <li>
-                <a 
-                  href="https://github.com" 
-                  target="_blank" 
+                <a
+                  href="https://github.com"
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-blue-400 transition flex items-center gap-2"
+                  className="group text-gray-400 hover:text-blue-400 transition flex items-center gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
-                    <path d="M9 18c-4.51 2-5-2-7-2"></path>
-                  </svg>
-                  GitHub
+                  <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+                      <path d="M9 18c-4.51 2-5-2-7-2"></path>
+                    </svg>
+                  </span>
+                  <span className="sr-only">GitHub</span>
                 </a>
               </li>
               <li>
-                <a 
-                  href="https://twitter.com" 
-                  target="_blank" 
+                <a
+                  href="https://twitter.com"
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-blue-400 transition flex items-center gap-2"
+                  className="group text-gray-400 hover:text-blue-400 transition flex items-center gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path>
-                  </svg>
-                  Twitter
+                  <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-pink-400 flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path>
+                    </svg>
+                  </span>
+                  <span className="sr-only">Twitter</span>
                 </a>
               </li>
               <li>
-                <a 
-                  href="https://discord.com" 
-                  target="_blank" 
+                <a
+                  href="https://discord.com"
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-blue-400 transition flex items-center gap-2"
+                  className="group text-gray-400 hover:text-blue-400 transition flex items-center gap-2"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="9" cy="12" r="1"></circle>
-                    <circle cx="15" cy="12" r="1"></circle>
-                    <path d="M7.5 7.2c.5-.7 1.2-1.2 2.1-1.5 2.5-.8 5.8-.8 8.4 0 .9.3 1.6.8 2.1 1.5"></path>
-                    <path d="M7 16.8c.5.7 1.2 1.2 2.1 1.5 2.5.8 5.8.8 8.4 0 .9-.3 1.6-.8 2.1-1.5"></path>
-                    <path d="M21 8v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5Z"></path>
-                  </svg>
-                  Discord
+                  <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-green-400 flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="9" cy="12" r="1"></circle>
+                      <circle cx="15" cy="12" r="1"></circle>
+                      <path d="M7.5 7.2c.5-.7 1.2-1.2 2.1-1.5 2.5-.8 5.8-.8 8.4 0 .9.3 1.6.8 2.1 1.5"></path>
+                      <path d="M7 16.8c.5.7 1.2 1.2 2.1 1.5 2.5.8 5.8.8 8.4 0 .9-.3 1.6-.8 2.1-1.5"></path>
+                      <path d="M21 8v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5Z"></path>
+                    </svg>
+                  </span>
+                  <span className="sr-only">Discord</span>
                 </a>
               </li>
             </ul>
           </div>
         </div>
-        <div className="mt-8 pt-6 border-t border-gray-800">
-          <p className="text-center text-gray-500">© {new Date().getFullYear()} PactDA. All rights reserved.</p>
+        <div className="mt-8 pt-6 border-t border-blue-900 border-opacity-60">
+          <p className="text-center text-gray-500">
+            © {new Date().getFullYear()} PactDA. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
-  );
-};
+  )
+}
 
-export default Footer;
+export default Footer

@@ -13,10 +13,23 @@ interface ContractsPaginationProps {
   searchKey: string
 }
 
-export default function ContractsPagination({role, type, searchKey}: ContractsPaginationProps) {
+export default function ContractsPagination({
+  role,
+  type,
+  searchKey,
+}: ContractsPaginationProps) {
   const currentAccount = useCurrentAccount()
   const address = currentAccount?.address
-  const [allContracts, setAllContracts] = useState([])
+  
+  // Define the Contract interface outside the fetchAllContracts function
+  interface Contract {
+    contract_id: string;
+    party_a: string;
+    party_b: string;
+    [key: string]: any; // for any additional contract fields
+  }
+  
+  const [allContracts, setAllContracts] = useState<Contract[]>([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [isCacheLoaded, setIsCacheLoaded] = useState(false)
@@ -35,22 +48,20 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
           setLoading(false)
           setIsCacheLoaded(true)
         }
-      } catch (e) {
-        console.error('Error loading from cache:', e)
+        } catch (e) {
+          console.error("Error loading cache:", e);
+        }
       }
-    }
-  }, [])
-
-  // Fetch all contracts in batches
-  const fetchAllContracts = useCallback(async () => {
-    if (!address || (isCacheLoaded && !allContracts)) return
-
-    setLoading(true)
-    let allFetchedContracts = []
-    let cursor = null
-    let hasMore = true
-
-    try {
+    }, [])
+  
+    const fetchAllContracts = useCallback(async () => {
+      setLoading(true)
+      
+      let allFetchedContracts: Contract[] = [];
+      let cursor = null
+      let hasMore = true
+  
+      try {
       // Batch load all contracts
       while (hasMore) {
         const response = await suiClient.queryEvents({
@@ -64,7 +75,7 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
 
         allFetchedContracts = [
           ...allFetchedContracts,
-          ...response.data.map((event) =>  event.parsedJson),
+          ...response.data.map((event) => event.parsedJson as Contract),
         ]
 
         if (response.hasNextPage) {
@@ -94,13 +105,13 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
     }
   }, [suiClient, address, isCacheLoaded])
 
+
   // Load contracts on component mount
   useEffect(() => {
-    fetchAllContracts()
-  }, [fetchAllContracts])
-
-
-  // Filter contracts based on active tab
+    if (!isCacheLoaded) {
+      fetchAllContracts()
+    }
+  }, [fetchAllContracts, isCacheLoaded])
   const filteredContracts = useMemo(() => {
     if (!allContracts.length) return []
 
@@ -114,7 +125,7 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
         case 'partyB':
           return content.party_b === address
         default:
-          return  content.party_a === address || content.party_b === address
+          return content.party_a === address || content.party_b === address
       }
     })
   }, [allContracts, role, address])
@@ -169,15 +180,6 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
     return pages
   }, [currentPage, totalPages])
 
-  // Helper function to compare byte arrays
-  function compareAddressBytes(a, b) {
-    if (!a || !b || a.length !== b.length) return false
-    for (let i = 0; i < a.length; i++) {
-      if (a[i] !== b[i]) return false
-    }
-    return true
-  }
-
   return (
     <div className="contracts-container p-4">
       {/* Loading or Empty State */}
@@ -193,9 +195,13 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
       ) : (
         <>
           {/* Contracts Grid */}
-          <div >
+          <div>
             {paginatedContracts.map((contract) => (
-              <ContractCard key={contract.contract_id} contract={contract} address={address}/>
+              <ContractCard
+                key={contract.contract_id}
+                contract={contract}
+                address={address}
+              />
             ))}
           </div>
 
@@ -262,7 +268,6 @@ export default function ContractsPagination({role, type, searchKey}: ContractsPa
               total)
             </div>
           </div>
-   
         </>
       )}
     </div>

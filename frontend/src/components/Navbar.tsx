@@ -12,7 +12,7 @@ const Navbar = () => {
   const [open, setOpen] = useState<boolean>(false)
   const location = useLocation()
   const [copied, setCopied] = useState(false)
-  const logo = '/images/logos/Ivory_cliped.png';
+  const logo = '/images/logos/Ivory_cliped.png'
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,10 +22,9 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-
   const navItems = [
     { id: 'Home', to: '/' },
-    ...((currentAccount?.address) ? [{ id: 'Dashboard', to: '/dashboard' }] : []),
+    ...(currentAccount?.address ? [{ id: 'Dashboard', to: '/dashboard' }] : []),
     { id: 'How To Use', to: '/how-to-use' },
     { id: 'About', to: '/about' },
   ]
@@ -73,9 +72,7 @@ const Navbar = () => {
                       transition={{ duration: 0.5 }}
                       className="relative"
                     >
-                      <span className="relative z-10">
-                        {item.id}
-                      </span>
+                      <span className="relative z-10">{item.id}</span>
                       <motion.span
                         className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-blue-700 to-blue-500"
                         initial={{ scaleX: 0 }}
@@ -111,7 +108,7 @@ const Navbar = () => {
                     </span>
                     <ChevronDown className="w-4 h-4 text-white ml-1" />
                   </motion.button>
-                  
+
                   {open && (
                     <div className="absolute right-0 mt-2 min-w-[240px] bg-[#061429]/95 border border-blue-700/30 text-white shadow-2xl rounded-2xl p-3 backdrop-blur-2xl z-50">
                       <div className="flex items-center space-x-2 px-2 pt-1 pb-2">
@@ -122,7 +119,9 @@ const Navbar = () => {
                         <button
                           className="ml-auto px-2 py-1 rounded bg-blue-800/50 hover:bg-blue-700/50 text-xs text-blue-300 transition"
                           onClick={() => {
-                            navigator.clipboard.writeText(currentAccount.address)
+                            navigator.clipboard.writeText(
+                              currentAccount.address,
+                            )
                             setCopied(true)
                             setTimeout(() => setCopied(false), 1200)
                           }}
@@ -152,9 +151,7 @@ const Navbar = () => {
                   onClick={() => setOpen(true)}
                 >
                   <Wallet className="w-4 h-4 text-white" />
-                  <span className="text-white font-bold">
-                    Connect Wallet
-                  </span>
+                  <span className="text-white font-bold">Connect Wallet</span>
                 </motion.button>
               )}
             </div>
@@ -206,10 +203,11 @@ const Navbar = () => {
                   <Link
                     key={item.id}
                     to={item.to}
-                    className={`block py-3 transition-all duration-300 ${isActivePath(item.to)
-                      ? 'text-white font-bold bg-gradient-to-r from-blue-700/20 to-blue-500/20 rounded-lg p-4'
-                      : 'text-blue-300 hover:text-white hover:bg-blue-700/10 rounded-lg p-4'
-                      }`}
+                    className={`block py-3 transition-all duration-300 ${
+                      isActivePath(item.to)
+                        ? 'text-white font-bold bg-gradient-to-r from-blue-700/20 to-blue-500/20 rounded-lg p-4'
+                        : 'text-blue-300 hover:text-white hover:bg-blue-700/10 rounded-lg p-4'
+                    }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <motion.div
@@ -218,9 +216,7 @@ const Navbar = () => {
                       transition={{ delay: index * 0.1 }}
                       className="flex items-center space-x-2"
                     >
-                      <span className="text-lg tracking-wide">
-                        {item.id}
-                      </span>
+                      <span className="text-lg tracking-wide">{item.id}</span>
                     </motion.div>
                   </Link>
                 ))}
@@ -229,9 +225,9 @@ const Navbar = () => {
                     <Button
                       className="block w-full px-3 py-2 rounded-lg bg-[#0f2b4d]/30 text-blue-300 font-mono font-semibold text-sm text-center truncate select-all mb-2 border border-blue-700/30 shadow-sm transition-colors duration-200 hover:bg-[#0f2b4d]/50 focus:outline-none"
                       onClick={() => {
-                        navigator.clipboard.writeText(currentAccount.address);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 1200);
+                        navigator.clipboard.writeText(currentAccount.address)
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 1200)
                       }}
                       title="Copy address"
                     >

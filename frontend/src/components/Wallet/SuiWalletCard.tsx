@@ -1,7 +1,7 @@
-import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
+import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit'
 
 export function SuiWalletCard() {
-	const account = useCurrentAccount();
+  const account = useCurrentAccount()
 
   return (
     <div className="border border-gray-700 rounded-3xl p-8 w-96 flex flex-col items-center shadow-xl bg-gray-800 hover:shadow-2xl transition">
@@ -16,5 +16,5 @@ export function SuiWalletCard() {
         </div>
       )}
     </div>
-  );
+  )
 }

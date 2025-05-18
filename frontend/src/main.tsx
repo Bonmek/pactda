@@ -1,6 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './global.css'
+import './styles/global.css'
+import './styles/animations.css'
+import './styles/shared.css'
 
 import App from './App'
 import { Providers } from './providers'

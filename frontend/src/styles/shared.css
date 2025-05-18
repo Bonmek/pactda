@@ -1,0 +1,88 @@
+/**
+ * A CSS utility file with common component styles
+ */
+
+.cardHover {
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.cardHover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+}
+
+.gradientText {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899);
+}
+
+.glassEffect {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.buttonGlow {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s ease;
+}
+
+.buttonGlow:hover {
+  box-shadow: 0 6px 20px rgba(138, 75, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.buttonGlow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition:
+    width 0.5s ease,
+    height 0.5s ease,
+    opacity 0.5s ease;
+}
+
+.buttonGlow:active::after {
+  width: 300px;
+  height: 300px;
+  opacity: 1;
+  transition: 0s;
+}
+
+@keyframes floatAnim {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-16px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.floatAnimation {
+  animation: floatAnim 5s ease-in-out infinite;
+}
+
+.floatAnimation2 {
+  animation: floatAnim 7s ease-in-out infinite;
+}
+
+.floatAnimation3 {
+  animation: floatAnim 9s ease-in-out infinite;
+}

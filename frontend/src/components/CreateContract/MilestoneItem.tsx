@@ -1,34 +1,37 @@
-
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Trash } from "lucide-react";
-import { motion } from "framer-motion";
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Trash } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 type Milestone = {
-  id: string;
-  title: string;
-  description: string;
-  value: string;
-};
+  id: string
+  title: string
+  description: string
+  value: string
+}
 
 type MilestoneItemProps = {
-  milestone: Milestone;
-  onUpdate: (id: string, field: keyof Milestone, value: string) => void;
-  onRemove: (id: string) => void;
-};
+  milestone: Milestone
+  onUpdate: (id: string, field: keyof Milestone, value: string) => void
+  onRemove: (id: string) => void
+}
 
-const MilestoneItem = ({ milestone, onUpdate, onRemove }: MilestoneItemProps) => {
+const MilestoneItem = ({
+  milestone,
+  onUpdate,
+  onRemove,
+}: MilestoneItemProps) => {
   return (
-    <motion.div 
+    <motion.div
       className="p-4 bg-slate-800/30 backdrop-blur-sm rounded-lg border border-slate-700/50 relative"
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      whileHover={{ 
-        boxShadow: "0 8px 20px -5px rgba(0,0,0,0.2)",
-        borderColor: "rgba(139, 92, 246, 0.5)",
-        transition: { duration: 0.2 }
+      whileHover={{
+        boxShadow: '0 8px 20px -5px rgba(0,0,0,0.2)',
+        borderColor: 'rgba(139, 92, 246, 0.5)',
+        transition: { duration: 0.2 },
       }}
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -38,7 +41,7 @@ const MilestoneItem = ({ milestone, onUpdate, onRemove }: MilestoneItemProps) =>
           </label>
           <Input
             value={milestone.title}
-            onChange={(e) => onUpdate(milestone.id, "title", e.target.value)}
+            onChange={(e) => onUpdate(milestone.id, 'title', e.target.value)}
             placeholder="e.g., Design Completion"
             className="bg-slate-800/50 border-slate-700/50 text-white"
           />
@@ -49,7 +52,7 @@ const MilestoneItem = ({ milestone, onUpdate, onRemove }: MilestoneItemProps) =>
           </label>
           <Input
             value={milestone.value}
-            onChange={(e) => onUpdate(milestone.id, "value", e.target.value)}
+            onChange={(e) => onUpdate(milestone.id, 'value', e.target.value)}
             placeholder="e.g., 250"
             type="number"
             min="0"
@@ -76,13 +79,15 @@ const MilestoneItem = ({ milestone, onUpdate, onRemove }: MilestoneItemProps) =>
         </label>
         <Textarea
           value={milestone.description}
-          onChange={(e) => onUpdate(milestone.id, "description", e.target.value)}
+          onChange={(e) =>
+            onUpdate(milestone.id, 'description', e.target.value)
+          }
           placeholder="Describe what needs to be delivered for this milestone"
           className="bg-slate-800/50 border-slate-700/50 text-white min-h-[60px] resize-none"
         />
       </div>
     </motion.div>
-  );
-};
+  )
+}
 
-export default MilestoneItem;
+export default MilestoneItem

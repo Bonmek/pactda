@@ -1,57 +1,110 @@
-import React, { useState, useEffect } from 'react';
-import type { PropsWithChildren } from 'react';
-import Header from './Header';
-import Footer from './Footer';
-import clsx from 'clsx';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react'
+import type { PropsWithChildren } from 'react'
+import Header from './Header'
+import Footer from './Footer'
+import clsx from 'clsx'
+import { useLocation } from 'react-router-dom'
+import GlobalEffects from '../Effects/GlobalEffects'
+import PageTransition from '../Effects/PageTransition'
+import PatternBackground from '../Effects/PatternBackground'
 
-import styles from './Layout.module.css';
+import styles from './Layout.module.css'
 
 interface LayoutProps {
-  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null;
-  setSelectedWalletType: (type: 'sui' | 'metamask' | 'google' | 'facebook' | null) => void;
-  children: React.ReactNode;
+  selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
+  setSelectedWalletType: (
+    type: 'sui' | 'metamask' | 'google' | 'facebook' | null,
+  ) => void
+  children: React.ReactNode
 }
 
-const Layout: React.FC<LayoutProps> = ({ 
-  selectedWalletType, 
-  setSelectedWalletType, 
-  children 
+const Layout: React.FC<LayoutProps> = ({
+  selectedWalletType,
+  setSelectedWalletType,
+  children,
 }) => {
-  const [scrollPosition, setScrollPosition] = useState(0);
-  const location = useLocation();
-  const isHomePage = location.pathname === '/';
+  const [scrollPosition, setScrollPosition] = useState(0)
+  const location = useLocation()
+  const isHomePage = location.pathname === '/'
 
   // Handle scroll position for glow effects
   useEffect(() => {
     const handleScroll = () => {
-      setScrollPosition(window.scrollY);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+      setScrollPosition(window.scrollY)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   // Try to load the saved wallet type from localStorage
   useEffect(() => {
-    const savedWalletType = localStorage.getItem('selectedWalletType') as 'sui' | 'metamask' | 'google' | 'facebook' | null;
+    const savedWalletType = localStorage.getItem('selectedWalletType') as
+      | 'sui'
+      | 'metamask'
+      | 'google'
+      | 'facebook'
+      | null
     if (savedWalletType) {
-      setSelectedWalletType(savedWalletType);
+      setSelectedWalletType(savedWalletType)
     }
-  }, [setSelectedWalletType]);
+  }, [setSelectedWalletType])
 
   // Save the selected wallet type to localStorage
   useEffect(() => {
     if (selectedWalletType) {
-      localStorage.setItem('selectedWalletType', selectedWalletType);
+      localStorage.setItem('selectedWalletType', selectedWalletType)
     } else {
-      localStorage.removeItem('selectedWalletType');
+      localStorage.removeItem('selectedWalletType')
     }
-  }, [selectedWalletType]);
-  
+  }, [selectedWalletType])
+  // Track mouse position for parallax effects
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({
+        x: e.clientX / window.innerWidth,
+        y: e.clientY / window.innerHeight,
+      })
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-[#0c1225] to-[#0f172a] text-gray-100">
-      <Header 
-        selectedWalletType={selectedWalletType} 
+    <div className="flex flex-col min-h-screen bg-gray-900 text-gray-100 relative overflow-hidden">
+      {/* Interactive pattern background */}
+      <PatternBackground
+        density={40}
+        speedFactor={0.2}
+        color="rgba(59, 130, 246, 0.5)"
+      />
+      {/* Global animated background elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {/* Large gradient orbs that follow mouse */}
+        <div
+          className="absolute w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/5 blur-3xl"
+          style={{
+            left: `${mousePosition.x * 20}%`,
+            top: `${mousePosition.y * 20}%`,
+            transform: `translate(-${mousePosition.x * 50}%, -${mousePosition.y * 50}%)`,
+            transition: 'left 0.6s ease-out, top 0.6s ease-out',
+          }}
+        />
+        <div
+          className="absolute w-[500px] h-[500px] rounded-full bg-gradient-to-br from-pink-500/15 to-blue-500/5 blur-3xl"
+          style={{
+            right: `${mousePosition.x * 20}%`,
+            bottom: `${mousePosition.y * 20}%`,
+            transform: `translate(${mousePosition.x * 50}%, ${mousePosition.y * 50}%)`,
+            transition: 'right 0.8s ease-out, bottom 0.8s ease-out',
+          }}
+        />
+
+        {/* Removed animated particles background in favor of the new pattern background */}
+      </div>
+      <Header
+        selectedWalletType={selectedWalletType}
         setSelectedWalletType={setSelectedWalletType}
       />
       <main className={styles.layout}>
@@ -65,41 +118,24 @@ const Layout: React.FC<LayoutProps> = ({
           style={{ opacity: 0.5 + scrollPosition / 2000 }}
         />
 
-        {/* Animated particles background */}
-        <div className="absolute inset-0 overflow-hidden opacity-20">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute bg-blue-700 rounded-full"
-              style={{
-                width: `${Math.random() * 4 + 1}px`,
-                height: `${Math.random() * 4 + 1}px`,
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                opacity: Math.random() * 0.5,
-                animation: `float ${Math.random() * 10 + 10}s linear infinite`,
-                animationDelay: `${Math.random() * 5}s`,
-              }}
-            />
-          ))}
-        </div>
-
         <div className="relative z-10 w-full h-full">
           <div className={styles.container}>
+            {' '}
             <div
               className={clsx(
                 isHomePage ? 'my-2' : styles.content,
                 'relative z-10 w-full h-full',
               )}
             >
-              {children}
+              <PageTransition>{children}</PageTransition>
             </div>
           </div>
         </div>
-      </main>
+      </main>{' '}
       <Footer />
+      <GlobalEffects />
     </div>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout
