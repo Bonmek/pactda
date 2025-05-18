@@ -1,4 +1,5 @@
 import type { PactContract } from './types';
+import { isSponsoredTransactionsEnabled } from './service/SponsorService';
 
 interface Props {
   contracts: PactContract[];
@@ -7,9 +8,24 @@ interface Props {
 }
 
 export function ContractList({ contracts, onCreateSolStub, loading = {} }: Props) {
+  // Check if sponsored transactions are available
+  const sponsoredTransactionsAvailable = isSponsoredTransactionsEnabled();
+  
   return (
     <div>
       <h2>Contracts</h2>
+      {sponsoredTransactionsAvailable && (
+        <div style={{ 
+          marginBottom: 16, 
+          padding: 8, 
+          backgroundColor: '#e8f4fc', 
+          borderRadius: 4,
+          color: '#0066cc',
+          fontSize: '0.9em'
+        }}>
+          <span role="img" aria-label="info">ℹ️</span> Sponsored transactions are enabled. Your Solana stub creation fees will be covered by the application.
+        </div>
+      )}
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {contracts.map(c => (
           <li key={c.id} style={{ 
@@ -74,8 +90,7 @@ export function ContractList({ contracts, onCreateSolStub, loading = {} }: Props
                   <span>Creating stub... ⏳</span>
                 ) : c.solStubCreated ? (
                   <span style={{ color: 'green' }}>✅ Created</span>
-                ) : (
-                  <button 
+                ) : (                  <button 
                     onClick={() => onCreateSolStub(c.id)}
                     style={{
                       padding: '6px 12px',
@@ -86,7 +101,7 @@ export function ContractList({ contracts, onCreateSolStub, loading = {} }: Props
                       cursor: 'pointer'
                     }}
                   >
-                    Create on Solana
+                    {sponsoredTransactionsAvailable ? 'Create on Solana (Sponsored)' : 'Create on Solana'}
                   </button>
                 )}
               </div>

@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0",
+  "name": "pactda_sol",
+  "instructions": [
+    {
+      "name": "initializeStubDirect",
+      "accounts": [
+        { "name": "pactDaStub", "isMut": true, "isSigner": false },
+        { "name": "signer", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "solanaStubId", "type": "u64" },
+        { "name": "suiContractIdentifier", "type": "string" },
+        { "name": "ztitle", "type": "string" },
+        { "name": "description", "type": "string" },
+        { "name": "pactdaUrl", "type": "string" }
+      ]
+    }
+  ],
+  "accounts": [],
+  "events": [],
+  "errors": [],
+  "types": [],
+  "metadata": {
+    "address": "4KuTWVUXcvrvoDvGqoBeivSAisXo8cQz8WA5P5GZRvgq"
+  }
+}

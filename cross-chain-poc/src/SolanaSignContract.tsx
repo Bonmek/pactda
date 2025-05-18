@@ -3,7 +3,7 @@ import type { PactContract } from './types';
 
 interface Props {
   contracts: PactContract[];
-  onSign: (id: string, signer: string) => void;
+  onSign: (id: string) => void;
   loading?: {[key: string]: boolean};
 }
 
@@ -12,8 +12,9 @@ export function SolanaSignContract({ contracts, onSign, loading = {} }: Props) {
 
   // Get contracts that are ready for signing by this wallet
   const signableContracts = contracts.filter(c => 
-    // Either the address matches directly or we should show all contracts if they have stubs
-    (c.solPartyB === publicKey?.toBase58() || !c.solPartyB) && 
+    // For cross-chain contracts, we check partyBAddress (the Solana address)
+    // Either the address matches directly or show contracts with stubs where this wallet matches
+    ((c.partyBAddress === publicKey?.toBase58() || c.solPartyB === publicKey?.toBase58()) || !c.partyBAddress) && 
     // Must have a stub created
     c.solStubCreated && 
     // And not already signed
@@ -59,9 +60,8 @@ export function SolanaSignContract({ contracts, onSign, loading = {} }: Props) {
               {c.title && <div><strong>Title:</strong> {c.title}</div>}
               {c.solanaStubId && <div><strong>Stub ID:</strong> {c.solanaStubId}</div>}
             </div>
-            
-            <button 
-              onClick={() => onSign(c.id, publicKey!.toBase58())}
+              <button 
+              onClick={() => onSign(c.id)}
               disabled={loading[c.id]}
               style={{
                 padding: '6px 12px',

@@ -3,14 +3,15 @@ import { SuiClientProvider, WalletProvider as SuiWalletProvider, ConnectButton a
 import { ConnectionProvider, WalletProvider as SolWalletProvider, useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { clusterApiUrl } from '@solana/web3.js';
+import { clusterApiUrl, PublicKey } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 
 import { CreateSuiContract } from './CreateSuiContract';
 import { ContractList } from './ContractList';
 import { SolanaSignContract } from './SolanaSignContract';
 import type { PactContract } from './types';
-import { createSolanaStub, signContractOnSolana } from './service/SolanaService';
+import { createSolanaStub, signContractOnSolana, PACTDA_PROGRAM_ID } from './service/SolanaService';
+import { isSponsoredTransactionsEnabled, createSponsoredStub, signContractSponsored } from './service/SponsorService';
 
 import '@mysten/dapp-kit/dist/index.css';
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -35,24 +36,17 @@ function AppContent() {
     // Add solPartyB and suiCreator fields for display purposes
     const enhancedContract = {
       ...contract,
+      // For cross-chain contracts, use partyBAddress (Solana address)
+      // For regular Sui contracts, use suiPartyBAddress
       solPartyB: contract.partyBAddress,
-      suiCreator: contract.partyAAddress
+      suiCreator: contract.partyAAddress,
+      // Make sure the status indicates if this is a cross-chain contract
+      status: contract.status || (contract.partyBAddress ? 'Cross-chain contract created on Sui' : 'Created on Sui')
     };
     setContracts(prev => [...prev, enhancedContract]);
   };
-
   // 2. Create stub on Solana - real implementation for testnet
   const handleCreateSolStub = async (id: string) => {
-    if (!solanaWallet.publicKey || !solanaWallet.signTransaction) {
-      setError("Please connect your Solana wallet first");
-      return;
-    }
-    
-    if (!connection) {
-      setError("No connection to Solana testnet. Please check your network connection.");
-      return;
-    }
-    
     // Find the contract
     const contract = contracts.find(c => c.id === id);
     if (!contract) {
@@ -60,45 +54,105 @@ function AppContent() {
       return;
     }
     
-    // Check if the wallet has enough SOL for the transaction
-    try {
-      const balance = await connection.getBalance(solanaWallet.publicKey);
-      console.log("Wallet balance:", solanaWallet.publicKey);
-      if (balance < 10000000) { // 0.01 SOL minimum
-        setError("Your Solana wallet needs more SOL for this transaction. Please fund it on testnet.");
+    // Check if we have a sponsored transactions option
+    const sponsoredTransactionsAvailable = isSponsoredTransactionsEnabled();
+    
+    // Regular user transaction path - requires connected wallet
+    if (!sponsoredTransactionsAvailable) {
+      if (!solanaWallet.publicKey || !solanaWallet.signTransaction) {
+        setError("Please connect your Solana wallet first");
         return;
       }
-    } catch (balanceError) {
-      console.error("Error checking balance:", balanceError);
-      // Continue anyway - we'll let the actual transaction fail if there's not enough balance
+      
+      if (!connection) {
+        setError("No connection to Solana testnet. Please check your network connection.");
+        return;
+      }
+      
+      // Check if the wallet has enough SOL for the transaction
+      try {
+        const balance = await connection.getBalance(solanaWallet.publicKey);
+        console.log("Wallet balance:", balance);
+        if (balance < 10000000) { // 0.01 SOL minimum
+          setError("Your Solana wallet needs more SOL for this transaction. Please fund it on testnet.");
+          return;
+        }
+      } catch (balanceError) {
+        console.error("Error checking balance:", balanceError);
+        // Continue anyway - we'll let the actual transaction fail if there's not enough balance
+      }
+    } else if (!connection) {
+      setError("No connection to Solana testnet. Please check your network connection.");
+      return;
     }
     
     setLoading(prev => ({ ...prev, [id]: true }));
     setError(null);
     
     try {
-      // Create an Anchor wallet adapter
-      const anchorWallet = {
-        publicKey: solanaWallet.publicKey,
-        signTransaction: solanaWallet.signTransaction,
-        signAllTransactions: solanaWallet.signAllTransactions!
-      } as anchor.Wallet;
+      let signature: string;
+      let solanaStubId: number;
       
-      // Call the Solana service to create a stub on testnet
-      const { signature, solanaStubId } = await createSolanaStub(
-        connection, 
-        anchorWallet, 
-        contract
-      );
-      
-      // Update the contract with Solana stub information
+      // Use sponsored transaction if available, otherwise use user's wallet
+      if (sponsoredTransactionsAvailable) {        // Get user's public key for attribution if available
+        const userPublicKey = solanaWallet.publicKey;
+        
+        console.log("Creating sponsored stub transaction");
+        
+        // Make sure we have a valid public key for attributing the transaction
+        let addressForAttribution: PublicKey;
+        if (userPublicKey) {
+          // Use the connected wallet's public key if available
+          addressForAttribution = userPublicKey;
+        } else if (contract.partyBAddress && contract.partyBAddress.trim() !== '') {
+          // Otherwise use the contract's party B address 
+          try {
+            addressForAttribution = new PublicKey(contract.partyBAddress);
+          } catch (error) {
+            console.error("Invalid Solana address format:", error);
+            // Use a default dummy address if the contract's address is invalid
+            addressForAttribution = PACTDA_PROGRAM_ID; // Use program ID as fallback
+          }
+        } else {
+          // Fallback to program ID if no address available
+          addressForAttribution = PACTDA_PROGRAM_ID;
+        }
+        
+        // Call the sponsored transaction service
+        const result = await createSponsoredStub(
+          connection, 
+          addressForAttribution,
+          contract
+        );
+        
+        signature = result.signature;
+        solanaStubId = result.solanaStubId;
+      } else {
+        // Create an Anchor wallet adapter
+        const anchorWallet = {
+          publicKey: solanaWallet.publicKey,
+          signTransaction: solanaWallet.signTransaction,
+          signAllTransactions: solanaWallet.signAllTransactions!
+        } as anchor.Wallet;
+        
+        // Call the Solana service to create a stub on testnet
+        const result = await createSolanaStub(
+          connection, 
+          anchorWallet, 
+          contract
+        );
+        
+        signature = result.signature;
+        solanaStubId = result.solanaStubId;
+      }
+        // Update the contract with Solana stub information
       setContracts(prev =>
         prev.map(c => c.id === id ? { 
           ...c, 
           solStubCreated: true,
           solanaStubId,
-          solanaStubInitiator: solanaWallet.publicKey!.toString(),
-          status: `${c.status} + Stub on Solana testnet`,
+          solanaStubInitiator: sponsoredTransactionsAvailable ? 'Sponsored Transaction' : solanaWallet.publicKey!.toString(),
+          status: `${c.status} + Stub on Solana testnet${sponsoredTransactionsAvailable ? ' (Sponsored)' : ''}`,
           solanaExplorerUrl: `https://explorer.solana.com/tx/${signature}?cluster=testnet`
         } : c)
       );
@@ -126,20 +180,8 @@ function AppContent() {
     } finally {
       setLoading(prev => ({ ...prev, [id]: false }));
     }
-  };
-
-  // 3. Party B signs on Sol - real implementation
-  const handleSign = async (id: string, _signer: string) => {
-    if (!solanaWallet.publicKey || !solanaWallet.signTransaction) {
-      setError("Please connect your Solana wallet first");
-      return;
-    }
-    
-    if (!connection) {
-      setError("No connection to Solana testnet. Please check your network connection.");
-      return;
-    }
-    
+  };  // 3. Party B signs on Sol - real implementation
+  const handleSign = async (id: string) => {
     // Find the contract
     const contract = contracts.find(c => c.id === id);
     if (!contract) {
@@ -153,35 +195,81 @@ function AppContent() {
       return;
     }
     
-    // Check if the wallet has enough SOL for the transaction
-    try {
-      const balance = await connection.getBalance(solanaWallet.publicKey);
-      if (balance < 10000000) { // 0.01 SOL minimum
-        setError("Your Solana wallet needs more SOL for this transaction. Please fund it on testnet.");
+    // Check if we have a sponsored transactions option
+    const sponsoredTransactionsAvailable = isSponsoredTransactionsEnabled();
+    
+    // Regular user transaction path - requires connected wallet
+    if (!sponsoredTransactionsAvailable) {
+      if (!solanaWallet.publicKey || !solanaWallet.signTransaction) {
+        setError("Please connect your Solana wallet first");
         return;
       }
-    } catch (balanceError) {
-      console.error("Error checking balance:", balanceError);
-      // Continue anyway - we'll let the actual transaction fail if there's not enough balance
+      
+      if (!connection) {
+        setError("No connection to Solana testnet. Please check your network connection.");
+        return;
+      }
+      
+      // Check if the wallet has enough SOL for the transaction
+      try {
+        const balance = await connection.getBalance(solanaWallet.publicKey);
+        if (balance < 10000000) { // 0.01 SOL minimum
+          setError("Your Solana wallet needs more SOL for this transaction. Please fund it on testnet.");
+          return;
+        }
+      } catch (balanceError) {
+        console.error("Error checking balance:", balanceError);
+        // Continue anyway - we'll let the actual transaction fail if there's not enough balance
+      }
     }
     
     setLoading(prev => ({ ...prev, [id]: true }));
     setError(null);
     
     try {
-      // Create an Anchor wallet adapter
-      const anchorWallet = {
-        publicKey: solanaWallet.publicKey,
-        signTransaction: solanaWallet.signTransaction,
-        signAllTransactions: solanaWallet.signAllTransactions!
-      } as anchor.Wallet;
+      let signature: string;
       
-      // Call the real signContractOnSolana function for testnet
-      const signature = await signContractOnSolana(
-        connection, 
-        anchorWallet, 
-        contract
-      );
+      if (sponsoredTransactionsAvailable) {
+        // Make sure we have a valid public key for attributing the transaction
+        let addressForAttribution: PublicKey;
+        if (solanaWallet.publicKey) {
+          // Use the connected wallet's public key if available
+          addressForAttribution = solanaWallet.publicKey;
+        } else if (contract.partyBAddress && contract.partyBAddress.trim() !== '') {
+          // Otherwise use the contract's party B address 
+          try {
+            addressForAttribution = new PublicKey(contract.partyBAddress);
+          } catch (error) {
+            console.error("Invalid Solana address format:", error);
+            // Use a default dummy address if the contract's address is invalid
+            addressForAttribution = PACTDA_PROGRAM_ID; // Use program ID as fallback
+          }
+        } else {
+          // Fallback to program ID if no address available
+          addressForAttribution = PACTDA_PROGRAM_ID;
+        }
+        
+        // Call the sponsored transaction service
+        signature = await signContractSponsored(
+          connection, 
+          addressForAttribution,
+          contract
+        );
+      } else {
+        // Create an Anchor wallet adapter
+        const anchorWallet = {
+          publicKey: solanaWallet.publicKey,
+          signTransaction: solanaWallet.signTransaction,
+          signAllTransactions: solanaWallet.signAllTransactions!
+        } as anchor.Wallet;
+        
+        // Call the real signContractOnSolana function for testnet
+        signature = await signContractOnSolana(
+          connection, 
+          anchorWallet, 
+          contract
+        );
+      }
       
       // Update the contract with signing information
       setContracts(prev =>
