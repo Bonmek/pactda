@@ -1,17 +1,23 @@
 // ContractsPagination.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit'
+import { ContractCard } from './ContractCard'
 
 const ITEMS_PER_PAGE = 10
 const PACKAGE_ID = import.meta.env.VITE_PACKAGE_ID
 const MODULE_NAME = import.meta.env.VITE_MODULE_NAME
 
-export default function ContractsPagination() {
+interface ContractsPaginationProps {
+  role: string
+  type: string
+  searchKey: string
+}
+
+export default function ContractsPagination({role, type, searchKey}: ContractsPaginationProps) {
   const currentAccount = useCurrentAccount()
   const address = currentAccount?.address
   const [allContracts, setAllContracts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('partyA')
   const [currentPage, setCurrentPage] = useState(1)
   const [isCacheLoaded, setIsCacheLoaded] = useState(false)
 
@@ -58,7 +64,7 @@ export default function ContractsPagination() {
 
         allFetchedContracts = [
           ...allFetchedContracts,
-          ...response.data.map((event) => event.parsedJson),
+          ...response.data.map((event) =>  event.parsedJson),
         ]
 
         if (response.hasNextPage) {
@@ -92,10 +98,7 @@ export default function ContractsPagination() {
   useEffect(() => {
     fetchAllContracts()
   }, [fetchAllContracts])
-  // Reset to page 1 when changing tabs
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [activeTab])
+
 
   // Filter contracts based on active tab
   const filteredContracts = useMemo(() => {
@@ -105,29 +108,16 @@ export default function ContractsPagination() {
       const content = contract
       if (!content) return false
 
-      switch (activeTab) {
+      switch (role) {
         case 'partyA':
           return content.party_a === address
         case 'partyB':
           return content.party_b === address
-        // case 'crossChain':
-        //   if (!content.cross_chain_parties?.fields?.vec?.fields) return false
-        //   const parties = content.cross_chain_parties.fields.vec.fields
-        //   return parties.some(
-        //     (party) =>
-        //       party.fields.role === 1 && // PARTY_ROLE_B
-        //       // You'd replace these with actual values from connected wallets
-        //       party.fields.chain_id === yourCrossChainId &&
-        //       compareAddressBytes(
-        //         party.fields.party_address,
-        //         yourCrossChainAddressBytes,
-        //       ),
-        //   )
         default:
-          return false
+          return  content.party_a === address || content.party_b === address
       }
     })
-  }, [allContracts, activeTab, address])
+  }, [allContracts, role, address])
 
   // Calculate pagination
   const paginatedContracts = useMemo(() => {
@@ -189,147 +179,94 @@ export default function ContractsPagination() {
   }
 
   return (
-    <div className="contracts-container">
-      {/* Tab Navigation */}
-      <div className="tabs">
-        <button
-          className={activeTab === 'partyA' ? 'active' : ''}
-          onClick={() => setActiveTab('partyA')}
-        >
-          I'm Party A ({filteredContracts.length})
-        </button>
-        <button
-          className={activeTab === 'partyB' ? 'active' : ''}
-          onClick={() => setActiveTab('partyB')}
-        >
-          I'm Party B ({filteredContracts.length})
-        </button>
-        {/* <button
-          className={activeTab === 'crossChain' ? 'active' : ''}
-          onClick={() => setActiveTab('crossChain')}
-        >
-          Cross Chain ({filteredContracts.length})
-        </button> */}
-      </div>
-
+    <div className="contracts-container p-4">
       {/* Loading or Empty State */}
       {loading && !isCacheLoaded ? (
-        <div className="loading-state">
-          <div className="spinner"></div>
+        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+          <div className="w-6 h-6 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p>Loading contracts...</p>
         </div>
       ) : filteredContracts.length === 0 ? (
-        <div className="empty-state">
+        <div className="text-center text-gray-400 py-12">
           <p>No contracts found for this role</p>
         </div>
       ) : (
         <>
           {/* Contracts Grid */}
-          <div className="contracts-grid">
+          <div >
             {paginatedContracts.map((contract) => (
-              <ContractCard key={contract.objectId} contract={contract} />
+              <ContractCard key={contract.contract_id} contract={contract} address={address}/>
             ))}
           </div>
 
           {/* Pagination Controls */}
-          <div className="pagination-controls">
-            <button
-              onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-              disabled={currentPage === 1}
-              className="pagination-button"
-            >
-              &lt; Prev
-            </button>
-
-            {pageNumbers.map((page, idx) => (
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-6">
+            <div className="flex flex-wrap gap-2 items-center">
               <button
-                key={idx}
-                onClick={() =>
-                  typeof page === 'number' ? setCurrentPage(page) : null
-                }
-                className={`pagination-button ${currentPage === page ? 'active' : ''} ${typeof page !== 'number' ? 'ellipsis' : ''}`}
-                disabled={typeof page !== 'number'}
+                onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium border border-[#37415A] 
+                ${
+                  currentPage === 1
+                    ? 'text-gray-500 bg-[#1A223F] cursor-not-allowed'
+                    : 'bg-[#2A3B5A] hover:bg-[#37415A] text-[#E0E7FF]'
+                }`}
               >
-                {page}
+                &lt; Prev
               </button>
-            ))}
 
-            <button
-              onClick={() =>
-                setCurrentPage((page) => Math.min(page + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-              className="pagination-button"
-            >
-              Next &gt;
-            </button>
+              {pageNumbers.map((page, idx) => (
+                <button
+                  key={idx}
+                  onClick={() =>
+                    typeof page === 'number' ? setCurrentPage(page) : null
+                  }
+                  disabled={typeof page !== 'number'}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium border border-[#37415A] 
+                  ${
+                    typeof page !== 'number'
+                      ? 'text-gray-500 bg-[#1A223F] cursor-not-allowed'
+                      : currentPage === page
+                        ? 'bg-[#3B82F6] text-white shadow'
+                        : 'bg-[#2A3B5A] text-[#E0E7FF] hover:bg-[#37415A]'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
 
-            <div className="pagination-info">
-              Page {currentPage} of {totalPages} ({filteredContracts.length}{' '}
+              <button
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(page + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium border border-[#37415A] 
+                ${
+                  currentPage === totalPages
+                    ? 'text-gray-500 bg-[#1A223F] cursor-not-allowed'
+                    : 'bg-[#2A3B5A] hover:bg-[#37415A] text-[#E0E7FF]'
+                }`}
+              >
+                Next &gt;
+              </button>
+            </div>
+
+            <div className="text-sm text-gray-400 mt-2 md:mt-0">
+              Page{' '}
+              <span className="text-[#A5B4FC] font-medium">{currentPage}</span>{' '}
+              of{' '}
+              <span className="text-[#A5B4FC] font-medium">{totalPages}</span> (
+              <span className="text-[#7DD3FC] font-medium">
+                {filteredContracts.length}
+              </span>{' '}
               total)
             </div>
           </div>
-
-          {/* Refresh Button */}
-          <button
-            onClick={() => {
-              localStorage.removeItem('pactda-contracts-cache')
-              setIsCacheLoaded(false)
-              fetchAllContracts()
-            }}
-            className="refresh-button"
-          >
-            Refresh Contracts
-          </button>
+   
         </>
       )}
     </div>
   )
-}
-
-// Contract Card Component - Memoized for performance
-const ContractCard = React.memo(({ contract }: any) => {
-  const content = contract || {}
-
-  return (
-    <div className="contract-card">
-      <h3>{content.title || 'Untitled Contract'}</h3>
-      <div className="contract-status">
-        Status: {renderStatus(content.status)}
-      </div>
-      <div className="contract-parties">
-        <div>Party A: {truncateAddress(content.party_a)}</div>
-        <div>
-          Party B:{' '}
-          {content.party_b !== '0x0'
-            ? truncateAddress(content.party_b)
-            : 'Cross-Chain'}
-        </div>
-      </div>
-      <div className="contract-signatures">
-        {content.is_party_a_signed && (
-          <span className="signature party-a">A ✓</span>
-        )}
-        {content.is_party_b_signed && (
-          <span className="signature party-b">B ✓</span>
-        )}
-      </div>
-      <button className="view-button">View Details</button>
-    </div>
-  )
-})
-
-// Helper functions
-function renderStatus(status: number): string {
-  const statusMap = {
-    0: 'Draft',
-    1: 'Pending',
-    2: 'Active',
-    3: 'Disputed',
-    4: 'Completed',
-    5: 'Cancelled',
-  }
-  return statusMap[status as keyof typeof statusMap] || 'Unknown'
 }
 
 function truncateAddress(address: string): string {

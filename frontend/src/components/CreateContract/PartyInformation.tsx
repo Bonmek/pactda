@@ -1,39 +1,50 @@
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useState } from 'react'
+import { Input } from '@/components/ui/input'
 
-const blockchains = ["Sui", "Ethereum", "Solana", "Polygon", "Avalanche"];
+const blockchains = ['Sui', 'Ethereum', 'Solana', 'Polygon', 'Avalanche']
 
-const PartyInformation = () => {
-  const [partyBBlockchain, setPartyBBlockchain] = useState<string>("Sui");
+interface PartyInformationProps {
+  address: string | undefined
+}
+
+const PartyInformation = ({ address }: PartyInformationProps) => {
+  const [partyBBlockchain, setPartyBBlockchain] = useState<string>('Sui')
 
   const handleBlockchainChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setPartyBBlockchain(e.target.value);
-  };
+    setPartyBBlockchain(e.target.value)
+  }
 
   return (
     <div className="space-y-8">
       {/* Party A - Initiator */}
       <div>
-        <h3 className="text-xl font-medium text-blue-400 mb-4">You (Party A - Initiator)</h3>
-        <Input 
-          placeholder="[Connected Sui Address]" 
+        <h3 className="block text-md font-semibold text-indigo-400 mb-2">
+          You (Party A - Initiator)
+        </h3>
+        <Input
+          placeholder="[Connected Sui Address]"
           className="w-full bg-slate-800/30 border-slate-700/50 text-white"
+          value={address}
           disabled
         />
       </div>
 
       {/* Party B - Counterparty */}
       <div>
-        <h3 className="text-xl font-medium text-blue-400 mb-4">Counterparty (Party B) Address</h3>
-        <Input 
-          placeholder="Enter Party B's address" 
+        <h3 className="block text-md font-semibold text-indigo-400 mb-2">
+          Counterparty (Party B) Address
+        </h3>
+        <Input
+          placeholder="Enter Party B's address"
           className="w-full bg-slate-800/30 border-slate-700/50 text-white"
         />
       </div>
 
       {/* Party B's Blockchain */}
       <div>
-        <h3 className="text-xl font-medium text-blue-400 mb-4">Party B's Primary Blockchain</h3>
+        <h3 className="block text-md font-semibold text-indigo-400 mb-2">
+          Party B's Primary Blockchain
+        </h3>
         <select
           className="w-full px-4 py-2 rounded-md bg-slate-800/30 border-slate-700/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           value={partyBBlockchain}
@@ -47,7 +58,7 @@ const PartyInformation = () => {
         </select>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default PartyInformation;
+export default PartyInformation
