@@ -4,10 +4,12 @@ import { Input } from '@/components/ui/input'
 const blockchains = ['Sui', 'Ethereum', 'Solana', 'Polygon', 'Avalanche']
 
 interface PartyInformationProps {
-  address: string | undefined
+  partyAAddress?: string
+  partyBAddress?: string
+  onPartyBAddressChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
-const PartyInformation = ({ address }: PartyInformationProps) => {
+const PartyInformation = ({ partyAAddress, partyBAddress, onPartyBAddressChange }: PartyInformationProps) => {
   const [partyBBlockchain, setPartyBBlockchain] = useState<string>('Sui')
 
   const handleBlockchainChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -24,7 +26,7 @@ const PartyInformation = ({ address }: PartyInformationProps) => {
         <Input
           placeholder="[Connected Sui Address]"
           className="w-full bg-slate-800/30 border-slate-700/50 text-white"
-          value={address}
+          value={partyAAddress}
           disabled
         />
       </div>
@@ -37,6 +39,9 @@ const PartyInformation = ({ address }: PartyInformationProps) => {
         <Input
           placeholder="Enter Party B's address"
           className="w-full bg-slate-800/30 border-slate-700/50 text-white"
+          value={partyBAddress}
+          onChange={onPartyBAddressChange}
+          required
         />
       </div>
 
@@ -46,7 +51,7 @@ const PartyInformation = ({ address }: PartyInformationProps) => {
           Party B's Primary Blockchain
         </h3>
         <select
-          className="w-full px-4 py-2 rounded-md bg-slate-800/30 border-slate-700/50 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-4 py-2 rounded-md bg-[#1E293B] border border-slate-700/50 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={partyBBlockchain}
           onChange={handleBlockchainChange}
         >

@@ -1,25 +1,24 @@
 import { Input } from '@/components/ui/input'
+interface AdditionalInformationProps {
+  metaData?: string
+  onMetadataChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+}
 
-const AdditionalInformation = () => {
+const AdditionalInformation = ({
+  metaData,
+  onMetadataChange,
+}: AdditionalInformationProps) => {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
+        <label className="block text-md font-semibold text-indigo-400 mb-2">
           External Links
         </label>
         <Input
           placeholder="e.g., Project documentation, design files, etc."
           className="bg-slate-800/30 border-slate-700/50 text-white"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
-          Additional Notes
-        </label>
-        <textarea
-          placeholder="Any other relevant information about this agreement..."
-          rows={4}
-          className="w-full rounded-md bg-slate-800/30 border-slate-700/50 text-white p-2"
+          value={metaData}
+          onChange={onMetadataChange}
         />
       </div>
     </div>
