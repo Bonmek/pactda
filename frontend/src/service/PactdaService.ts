@@ -54,8 +54,6 @@ export const getContracts = async (
     },
   })
 
-  console.log('getContracts response:', response)
-
   if (!response.data || response.data.content?.dataType !== 'moveObject') {
     return null
   }
@@ -102,35 +100,6 @@ export const buildCreateContractTx = (
     throw new Error('Title is required')
   }
 
-  console.log('buildCreateContractTx inputs (raw):', {
-    title,
-    partyBAddress,
-    contractType,
-    termsReference,
-    startDate,
-    endDate,
-    metadata,
-  })
-
-  console.log('buildCreateContractTx inputs (processed):', {
-    title,
-    partyBAddress: partyBAddress || 'null/undefined',
-    partyBAddressIsEmpty: partyBAddress === '',
-    partyBAddressType: typeof partyBAddress,
-    contractType: contractType !== undefined ? contractType : 'null/undefined',
-    contractTypeType: typeof contractType,
-    termsReference: termsReference || 'null/undefined',
-    startDate:
-      startDate !== undefined
-        ? new Date(startDate * 1000).toISOString()
-        : 'null/undefined',
-    endDate:
-      endDate !== undefined
-        ? new Date(endDate * 1000).toISOString()
-        : 'null/undefined',
-    metadata: metadata || 'null/undefined',
-  })
-
   // Parameter order based on the Move function signature:
   // party_b: Option<address>, title: String, contract_type: Option<u8>,
   // terms_reference: Option<vector<u8>>, contract_start_date: Option<u64>,
@@ -139,7 +108,6 @@ export const buildCreateContractTx = (
     // First arg: party_b: Option<address>
     partyBAddress && partyBAddress.trim() !== ''
       ? (() => {
-          console.log('partyBAddress before encoding:', partyBAddress)
           const isValidAddress = /^0x[a-fA-F0-9]{64}$/.test(partyBAddress)
           if (!isValidAddress) {
             throw new Error(
@@ -156,7 +124,6 @@ export const buildCreateContractTx = (
           }
         })()
       : (() => {
-          console.log('Using None/null for party_b address')
           return txb.pure.option('address', null)
         })(), // Pass null for empty/undefined value
 
@@ -166,7 +133,6 @@ export const buildCreateContractTx = (
     // Third arg: contract_type: Option<u8>
     contractType !== undefined
       ? (() => {
-          console.log('contractType:', contractType)
           return txb.pure.option('u8', contractType)
         })()
       : txb.pure.option('u8', null),
@@ -175,7 +141,6 @@ export const buildCreateContractTx = (
     termsReference && termsReference.trim() !== ''
       ? (() => {
           const encoded = Array.from(new TextEncoder().encode(termsReference))
-          console.log('Encoded termsReference:', encoded)
           return txb.pure.option('vector<u8>', encoded)
         })()
       : txb.pure.option('vector<u8>', null),
@@ -183,7 +148,6 @@ export const buildCreateContractTx = (
     // Fifth arg: contract_start_date: Option<u64>
     startDate !== undefined
       ? (() => {
-          console.log('startDate:', startDate)
           return txb.pure.option('u64', startDate)
         })()
       : txb.pure.option('u64', null),
@@ -191,7 +155,6 @@ export const buildCreateContractTx = (
     // Sixth arg: contract_deadline_date: Option<u64>
     endDate !== undefined
       ? (() => {
-          console.log('endDate:', endDate)
           return txb.pure.option('u64', endDate)
         })()
       : txb.pure.option('u64', null),
@@ -200,7 +163,6 @@ export const buildCreateContractTx = (
     metadata && metadata.trim() !== ''
       ? (() => {
           const encoded = Array.from(new TextEncoder().encode(metadata))
-          console.log('Encoded metadata:', encoded)
           return txb.pure.option('vector<u8>', encoded)
         })()
       : txb.pure.option('vector<u8>', null),
@@ -309,6 +271,105 @@ export const buildCancelContractTx = (contractId: string): Transaction => {
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::cancel_contract`,
     arguments: [txb.object(contractId)],
+  })
+
+  return txb
+}
+
+export const buildUpdateContractTx = (
+  contractId: string,
+  values: {
+    chainId?: number // Option<u16> for cross-chain, usually undefined for Sui-only
+    partyBCrossChain?: string // Option<vector<u8>> (hex string or undefined)
+    suiPartyBAddress?: string // Option<address>
+    contractType?: number // Option<u8>
+    termsReference?: string // Option<vector<u8>>
+    metadata?: string // Option<vector<u8>>
+    startDate?: Date // Option<u64>
+    endDate?: Date // Option<u64>
+    // title is not updatable, always None
+  },
+): Transaction => {
+  const txb = new Transaction()
+
+  // Prepare arguments for the Move update_contract function
+  // update_contract(
+  //   contract: &mut PactDaContract,
+  //   chain_id: Option<u16>,
+  //   party_b_cross_chain: Option<vector<u8>>,
+  //   party_b: Option<address>,
+  //   title: Option<String>,
+  //   terms_reference: Option<vector<u8>>,
+  //   contract_start_date: Option<u64>,
+  //   contract_deadline_date: Option<u64>,
+  //   metadata: Option<vector<u8>>,
+  //   contract_type: Option<u8>,
+  //   ctx: &mut TxContext
+  // )
+
+  const args = [
+    // 1. contract: &mut PactDaContract
+    txb.object(contractId),
+    // 2. chain_id: Option<u16>
+    values.chainId !== undefined && values.chainId !== null
+      ? txb.pure.option('u16', values.chainId)
+      : txb.pure.option('u16', null),
+    // 3. party_b_cross_chain: Option<vector<u8>>
+    values.partyBCrossChain && values.partyBCrossChain.trim() !== ''
+      ? (() => {
+          // Accepts a hex string (with or without 0x)
+          let hex = values.partyBCrossChain.trim()
+          if (hex.startsWith('0x')) hex = hex.slice(2)
+          const bytes = Array.from(Buffer.from(hex, 'hex'))
+          return txb.pure.option('vector<u8>', bytes)
+        })()
+      : txb.pure.option('vector<u8>', null),
+    // 4. party_b: Option<address>
+    values.suiPartyBAddress && values.suiPartyBAddress.trim() !== ''
+      ? (() => {
+          const isValidAddress = /^0x[a-fA-F0-9]{64}$/.test(
+            values.suiPartyBAddress!,
+          )
+          if (!isValidAddress)
+            throw new Error('Invalid Sui address for party_b')
+          return txb.pure.option('address', values.suiPartyBAddress)
+        })()
+      : txb.pure.option('address', null),
+    // 5. title: Option<String> (always None for update)
+    txb.pure.option('string', null),
+    // 6. terms_reference: Option<vector<u8>>
+    values.termsReference && values.termsReference.trim() !== ''
+      ? (() => {
+          const encoded = Array.from(
+            new TextEncoder().encode(values.termsReference!),
+          )
+          return txb.pure.option('vector<u8>', encoded)
+        })()
+      : txb.pure.option('vector<u8>', null),
+    // 7. contract_start_date: Option<u64>
+    values.startDate !== undefined && values.startDate !== null
+      ? txb.pure.option('u64', Math.floor(values.startDate.getTime() / 1000))
+      : txb.pure.option('u64', null),
+    // 8. contract_deadline_date: Option<u64>
+    values.endDate !== undefined && values.endDate !== null
+      ? txb.pure.option('u64', Math.floor(values.endDate.getTime() / 1000))
+      : txb.pure.option('u64', null),
+    // 9. metadata: Option<vector<u8>>
+    values.metadata && values.metadata.trim() !== ''
+      ? (() => {
+          const encoded = Array.from(new TextEncoder().encode(values.metadata!))
+          return txb.pure.option('vector<u8>', encoded)
+        })()
+      : txb.pure.option('vector<u8>', null),
+    // 10. contract_type: Option<u8>
+    values.contractType !== undefined && values.contractType !== null
+      ? txb.pure.option('u8', values.contractType)
+      : txb.pure.option('u8', null),
+  ]
+
+  txb.moveCall({
+    target: `${PACKAGE_ID}::${MODULE_NAME}::update_contract`,
+    arguments: args,
   })
 
   return txb

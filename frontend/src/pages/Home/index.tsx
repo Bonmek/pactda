@@ -21,7 +21,9 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="flex flex-col w-full">      {/* Hero Section */}
+    <div className="flex flex-col w-full">
+      {' '}
+      {/* Hero Section */}
       <section className="relative flex flex-col items-center justify-center min-h-[90vh] md:min-h-screen text-center px-4 pt-0 mt-0">
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-64 sm:w-96 h-64 sm:h-96 bg-blue-700/10 rounded-full blur-3xl animate-pulse"></div>
@@ -45,10 +47,14 @@ export default function Home() {
             }}
             whileTap={{ scale: 0.97 }}
             className="cursor-pointer"
-          >            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-blue-100 mb-4 sm:mb-6 tracking-tight leading-tight header-hover bg-size-200 bg-pos-0 responsive-heading-lg">
+          >
+            {' '}
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-blue-300 to-blue-100 mb-4 sm:mb-6 tracking-tight leading-tight header-hover bg-size-200 bg-pos-0 responsive-heading-lg">
               <span className="inline-block">PactDa: </span>
               <span className="inline-block">Decentralized Trust</span>
-              <span className="block mt-1 sm:mt-2 pb-2">for Digital Agreements</span>
+              <span className="block mt-1 sm:mt-2 pb-2">
+                for Digital Agreements
+              </span>
             </h1>
           </motion.div>
 
@@ -65,7 +71,9 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
-          >            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+          >
+            {' '}
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 text-white px-5 sm:px-8 py-5 sm:py-6 rounded-full text-base sm:text-lg font-semibold shadow-lg shadow-blue-700/30 hover:shadow-blue-600/40 transition-all duration-300 relative overflow-hidden group responsive-btn"
@@ -79,7 +87,8 @@ export default function Home() {
                   <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                 </Link>
               </Button>
-            </motion.div>            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+            </motion.div>{' '}
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
               <Button
                 variant="outline"
                 size="lg"
@@ -169,7 +178,8 @@ export default function Home() {
             </svg>
           </motion.div>
         </motion.div>
-      </section>      {/* Features Section */}
+      </section>{' '}
+      {/* Features Section */}
       <section
         className="min-h-[90vh] md:min-h-screen flex items-center py-12 sm:py-16 md:py-20 px-4 relative"
         id="features"
@@ -205,7 +215,9 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
               viewport={{ once: true }}
-            >              <Card className="h-full border border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
+            >
+              {' '}
+              <Card className="h-full border border-blue-700/30 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-700/20 backdrop-blur-sm">
                 <CardContent className="flex flex-col items-center text-center p-4 sm:p-6 lg:p-8">
                   <motion.div
                     whileHover={{ scale: 1.1, rotate: 5 }}

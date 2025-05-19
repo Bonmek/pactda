@@ -8,7 +8,7 @@
   .xs\:hidden {
     display: none !important;
   }
-  
+
   .xs\:block {
     display: block !important;
   }
@@ -23,7 +23,7 @@
   .sm\:hidden {
     display: none !important;
   }
-  
+
   .sm\:block {
     display: block !important;
   }
@@ -38,7 +38,7 @@
   .md\:text-sm {
     font-size: 0.875rem !important;
   }
-  
+
   .md\:px-4 {
     padding-left: 1rem !important;
     padding-right: 1rem !important;
@@ -58,15 +58,15 @@
   .safe-bottom {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   }
-  
+
   .safe-left {
     padding-left: max(0.5rem, env(safe-area-inset-left));
   }
-  
+
   .safe-right {
     padding-right: max(0.5rem, env(safe-area-inset-right));
   }
-  
+
   .safe-top {
     padding-top: max(0.5rem, env(safe-area-inset-top));
   }
@@ -77,12 +77,12 @@
   .responsive-text-sm {
     font-size: 0.875rem !important;
   }
-  
+
   .responsive-heading-md {
     font-size: 1.5rem !important;
     line-height: 2rem !important;
   }
-  
+
   .responsive-heading-lg {
     font-size: 1.875rem !important;
     line-height: 2.25rem !important;

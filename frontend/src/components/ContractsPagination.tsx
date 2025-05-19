@@ -20,15 +20,15 @@ export default function ContractsPagination({
 }: ContractsPaginationProps) {
   const currentAccount = useCurrentAccount()
   const address = currentAccount?.address
-  
+
   // Define the Contract interface outside the fetchAllContracts function
   interface Contract {
-    contract_id: string;
-    party_a: string;
-    party_b: string;
-    [key: string]: any; // for any additional contract fields
+    contract_id: string
+    party_a: string
+    party_b: string
+    [key: string]: any // for any additional contract fields
   }
-  
+
   const [allContracts, setAllContracts] = useState<Contract[]>([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -48,20 +48,20 @@ export default function ContractsPagination({
           setLoading(false)
           setIsCacheLoaded(true)
         }
-        } catch (e) {
-          console.error("Error loading cache:", e);
-        }
+      } catch (e) {
+        console.error('Error loading cache:', e)
       }
-    }, [])
-  
-    const fetchAllContracts = useCallback(async () => {
-      setLoading(true)
-      
-      let allFetchedContracts: Contract[] = [];
-      let cursor = null
-      let hasMore = true
-  
-      try {
+    }
+  }, [])
+
+  const fetchAllContracts = useCallback(async () => {
+    setLoading(true)
+
+    let allFetchedContracts: Contract[] = []
+    let cursor = null
+    let hasMore = true
+
+    try {
       // Batch load all contracts
       while (hasMore) {
         const response = await suiClient.queryEvents({
@@ -104,7 +104,6 @@ export default function ContractsPagination({
       setLoading(false)
     }
   }, [suiClient, address, isCacheLoaded])
-
 
   // Load contracts on component mount
   useEffect(() => {

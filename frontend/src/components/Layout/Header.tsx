@@ -192,7 +192,7 @@ const Header: React.FC<HeaderProps> = ({
   const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 })
   // Add state for mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  
+
   // Listen for mouse movement for parallax
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -361,7 +361,7 @@ const Header: React.FC<HeaderProps> = ({
           </svg>
         </div>
         <div className="container mx-auto px-4 flex justify-between items-center relative z-10">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full justify-between md:justify-start mr-4">
             <Link to="/" className="flex items-center gap-2 group">
               {/* Redesigned PactDA Logo */}
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-400 flex items-center justify-center rounded-lg shadow-lg relative overflow-hidden border border-indigo-400/30">
@@ -387,25 +387,26 @@ const Header: React.FC<HeaderProps> = ({
                     strokeLinejoin="round"
                   />
                 </svg>
-              </div>              <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-transform duration-300">
+              </div>{' '}
+              <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-transform duration-300">
                 PactDA
               </span>
             </Link>
             {/* Mobile menu button */}
-            <button 
+            <button
               className="md:hidden ml-4 p-2 rounded-md bg-indigo-900/50 border border-indigo-500/30 text-indigo-300"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle mobile menu"
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
                 strokeLinejoin="round"
               >
                 {mobileMenuOpen ? (
@@ -544,7 +545,8 @@ const Header: React.FC<HeaderProps> = ({
                 </svg>
                 Docs
               </Link>
-            </nav>          </div>
+            </nav>{' '}
+          </div>
           <div className="flex items-center gap-2 md:gap-4">
             <button
               className="relative hidden md:flex px-4 md:px-6 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold border border-indigo-500/50 shadow-lg group overflow-hidden rounded-md backdrop-blur-sm"
@@ -569,7 +571,8 @@ const Header: React.FC<HeaderProps> = ({
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="16"></line>
                   <line x1="8" y1="12" x2="16" y2="12"></line>
-                </svg>                Contract
+                </svg>{' '}
+                Contract
               </span>
             </button>
             <div className="relative" ref={dropdownRef}>
@@ -607,7 +610,8 @@ const Header: React.FC<HeaderProps> = ({
                     </svg>
                     Loading...
                   </span>
-                ) : isWalletConnected ? (                  <>
+                ) : isWalletConnected ? (
+                  <>
                     <span className="w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md bg-indigo-700 border border-indigo-400/30 font-mono text-sm relative z-10">
                       {getConnectedAddress()?.slice(2, 4) || 'U'}
                     </span>
@@ -643,7 +647,14 @@ const Header: React.FC<HeaderProps> = ({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <rect
+                          x="3"
+                          y="11"
+                          width="18"
+                          height="11"
+                          rx="2"
+                          ry="2"
+                        ></rect>
                         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                       </svg>
                     </span>
@@ -657,7 +668,9 @@ const Header: React.FC<HeaderProps> = ({
                   {isWalletConnected ? (
                     <div className="p-4 relative z-10">
                       <div className="mb-4">
-                        <p className="text-sm text-indigo-400 mb-1">Connected</p>
+                        <p className="text-sm text-indigo-400 mb-1">
+                          Connected
+                        </p>
                         <div className="p-2 bg-gray-800/70 rounded border border-indigo-500/20 font-mono text-xs break-all">
                           {getConnectedAddress()}
                         </div>
@@ -690,7 +703,14 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectSui}
                         className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-blue-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <circle cx="12" cy="12" r="10"></circle>
                           <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
                           <line x1="9" y1="9" x2="9.01" y2="9"></line>
@@ -702,7 +722,14 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectMetaMask}
                         className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-yellow-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"></path>
                         </svg>
                         MetaMask
@@ -716,7 +743,14 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectGoogle}
                         className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-red-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <circle cx="12" cy="12" r="10"></circle>
                           <circle cx="12" cy="10" r="3"></circle>
                           <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"></path>
@@ -727,8 +761,21 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectFacebook}
                         className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-blue-400 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <rect width="20" height="20" x="2" y="2" rx="5"></rect>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <rect
+                            width="20"
+                            height="20"
+                            x="2"
+                            y="2"
+                            rx="5"
+                          ></rect>
                           <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
                           <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
                         </svg>
@@ -737,19 +784,22 @@ const Header: React.FC<HeaderProps> = ({
                     </div>
                   )}
                 </div>
-              )}            </div>
+              )}{' '}
+            </div>
           </div>
         </div>
       </header>
-      
+
       {/* Mobile Navigation Drawer */}
-      <div className={`fixed inset-0 z-50 md:hidden ${mobileMenuOpen ? 'block' : 'hidden'}`}>
+      <div
+        className={`fixed inset-0 z-50 md:hidden ${mobileMenuOpen ? 'block' : 'hidden'}`}
+      >
         {/* Backdrop */}
-        <div 
+        <div
           className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm"
           onClick={() => setMobileMenuOpen(false)}
         ></div>
-        
+
         {/* Slide-out navigation panel */}
         <div className="absolute right-0 top-0 bottom-0 w-3/4 max-w-sm bg-gradient-to-b from-gray-900 to-indigo-900/90 border-l border-indigo-500/30 shadow-xl flex flex-col">
           <div className="p-4 border-b border-indigo-500/30 flex justify-between items-center">
@@ -782,24 +832,37 @@ const Header: React.FC<HeaderProps> = ({
                 PactDA
               </span>
             </div>
-            <button 
+            <button
               className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </button>
           </div>
-          
+
           <nav className="flex flex-col p-4 space-y-4">
             <Link
               to="/"
               className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-blue-400"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
                 <path
                   d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"
                   stroke="currentColor"
@@ -815,7 +878,11 @@ const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-cyan-400"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
                 <path
                   d="M4 17v-2a4 4 0 014-4h8a4 4 0 014 4v2"
                   stroke="currentColor"
@@ -823,7 +890,13 @@ const Header: React.FC<HeaderProps> = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+                <circle
+                  cx="12"
+                  cy="7"
+                  r="4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
               </svg>
               Workflow
             </Link>
@@ -832,7 +905,11 @@ const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-amber-400"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
                 <path
                   d="M12 20h9"
                   stroke="currentColor"
@@ -853,8 +930,18 @@ const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg className="w-5 h-5 text-pink-400" fill="none" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+              <svg
+                className="w-5 h-5 text-pink-400"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
                 <path
                   d="M12 16v-4m0-4h.01"
                   stroke="currentColor"
@@ -870,7 +957,11 @@ const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 text-green-400"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
                 <rect
                   x="4"
                   y="4"
@@ -889,12 +980,12 @@ const Header: React.FC<HeaderProps> = ({
               </svg>
               Docs
             </Link>
-            
+
             <div className="pt-4 mt-4 border-t border-indigo-500/30">
               <button
                 onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate('/create-contract');
+                  setMobileMenuOpen(false)
+                  navigate('/create-contract')
                 }}
                 className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold border border-indigo-500/50 shadow-lg overflow-hidden rounded-md backdrop-blur-sm flex items-center justify-center gap-2"
               >

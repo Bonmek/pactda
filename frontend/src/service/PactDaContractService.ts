@@ -8,9 +8,6 @@ const PACKAGE_ID =
 const MODULE_NAME =
   import.meta.env.VITE_SUI_MODULE_NAME || import.meta.env.VITE_MODULE_NAME
 
-
-
-
 /**
  * Gets all contracts for a specific owner
  */
@@ -102,7 +99,7 @@ export const getContracts = async (
         amount: fields.amount || 0,
         currency: fields.currency || '',
         createdAt: fields.created_at || 0,
-        updatedAt: fields.updated_at || 0
+        updatedAt: fields.updated_at || 0,
       }
     })
 }
@@ -113,71 +110,70 @@ export const buildAddMilestoneTx = (
   description?: string,
   startDate?: number,
   endDate?: number,
-  status?: number
+  status?: number,
 ): Transaction => {
   if (!contractId) {
-    throw new Error('Contract ID is required');
+    throw new Error('Contract ID is required')
   }
 
   if (!milestoneTitle) {
-    throw new Error('Milestone Title is required');
+    throw new Error('Milestone Title is required')
   }
 
-  const txb = new Transaction();
-  const args = [];
+  const txb = new Transaction()
+  const args = []
 
   // === Helper Functions ===
-  const encodeBytes = (data: string) => 
-    Array.from(new TextEncoder().encode(data));
+  const encodeBytes = (data: string) =>
+    Array.from(new TextEncoder().encode(data))
 
   // === Contract ID (address) ===
-  args.push(txb.pure.address(contractId));
+  args.push(txb.pure.address(contractId))
 
   // === Milestone Title (string) ===
-  args.push(txb.pure.string(milestoneTitle));
+  args.push(txb.pure.string(milestoneTitle))
 
   // === Description (Option<vector<u8>>) ===
   args.push(
     description && description.trim() !== ''
       ? txb.pure.option('vector<u8>', encodeBytes(description))
-      : txb.pure.option('vector<u8>', null)
-  );
+      : txb.pure.option('vector<u8>', null),
+  )
 
   // === Start Date (Option<u64>) ===
   args.push(
     startDate !== undefined
       ? txb.pure.option('u64', BigInt(startDate))
-      : txb.pure.option('u64', null)
-  );
+      : txb.pure.option('u64', null),
+  )
 
   // === End Date (Option<u64>) ===
   args.push(
     endDate !== undefined
       ? txb.pure.option('u64', BigInt(endDate))
-      : txb.pure.option('u64', null)
-  );
+      : txb.pure.option('u64', null),
+  )
 
   // === Status (Option<u8>) ===
   args.push(
     status !== undefined
       ? txb.pure.option('u8', status)
-      : txb.pure.option('u8', null)
-  );
+      : txb.pure.option('u8', null),
+  )
 
   // === Move Call ===
   try {
     txb.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::add_milestone`,
       arguments: args,
-    });
-    return txb;
+    })
+    return txb
   } catch (error) {
     throw new Error(
-      `Failed to build transaction: ${error instanceof Error ? error.message : String(error)}`
-    );
+      `Failed to build transaction: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
-};
-
+}
 
 // Export functions for contract interactions
 export {
@@ -188,4 +184,4 @@ export {
   buildCompleteMilestoneTx,
   buildReleasePaymentTx,
   buildCancelContractTx,
-} from './PactdaService';
+} from './PactdaService'

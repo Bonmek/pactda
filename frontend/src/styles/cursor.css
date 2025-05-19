@@ -11,14 +11,26 @@
   }
 
   /* If cursor tracking fails, ensure these elements still show correct cursor */
-  a:hover, button:hover, [role="button"]:hover, 
-  input[type="submit"]:hover, input[type="button"]:hover, input[type="reset"]:hover {
+  a:hover,
+  button:hover,
+  [role='button']:hover,
+  input[type='submit']:hover,
+  input[type='button']:hover,
+  input[type='reset']:hover {
     cursor: pointer !important;
   }
 
   /* Ensure text selection works properly */
-  textarea, input[type="text"], input[type="password"], 
-  input[type="email"], input[type="number"], p, span, h1, h2, h3 {
+  textarea,
+  input[type='text'],
+  input[type='password'],
+  input[type='email'],
+  input[type='number'],
+  p,
+  span,
+  h1,
+  h2,
+  h3 {
     cursor: text !important;
   }
 }
@@ -51,7 +63,10 @@
   background-repeat: no-repeat;
   background-size: contain;
   transform: translate(-50%, -50%);
-  transition: transform 0.05s ease, width 0.2s ease, height 0.2s ease;
+  transition:
+    transform 0.05s ease,
+    width 0.2s ease,
+    height 0.2s ease;
   pointer-events: none;
   will-change: transform;
   filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.5));
@@ -135,8 +150,13 @@
 
 /* Specific element interactions - only on desktop */
 @media (min-width: 768px) {
-  a, button, .cursor-pointer, [role="button"], 
-  input[type="submit"], input[type="button"], input[type="reset"] {
+  a,
+  button,
+  .cursor-pointer,
+  [role='button'],
+  input[type='submit'],
+  input[type='button'],
+  input[type='reset'] {
     cursor: none !important;
   }
 }
@@ -146,10 +166,10 @@
 a:hover ~ #cursor-container #custom-cursor,
 button:hover ~ #cursor-container #custom-cursor,
 .cursor-pointer:hover ~ #cursor-container #custom-cursor,
-[role="button"]:hover ~ #cursor-container #custom-cursor,
-input[type="submit"]:hover ~ #cursor-container #custom-cursor,
-input[type="button"]:hover ~ #cursor-container #custom-cursor,
-input[type="reset"]:hover ~ #cursor-container #custom-cursor {
+[role='button']:hover ~ #cursor-container #custom-cursor,
+input[type='submit']:hover ~ #cursor-container #custom-cursor,
+input[type='button']:hover ~ #cursor-container #custom-cursor,
+input[type='reset']:hover ~ #cursor-container #custom-cursor {
   width: 36px !important;
   height: 36px !important;
   background-image: url('/cursor-pointer.svg') !important;

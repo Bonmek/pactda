@@ -25,7 +25,6 @@ function SignContractAsPartyAButton({
       },
       {
         onSuccess: async (result) => {
-          console.log('✅ executed transaction', result)
           await OnExecuted()
         },
         onError: (err) => {

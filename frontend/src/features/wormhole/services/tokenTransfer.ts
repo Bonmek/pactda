@@ -284,7 +284,6 @@ export async function transferNFTFromEthToSui(
     // Approve NFT for bridge if not already approved
     if (!isApproved) {
       status.status = 'signing'
-      console.log('Approving NFT bridge to transfer NFTs')
       const approveTx = await nftContract.setApprovalForAll(
         sourceChainConfig.nftBridgeAddress,
         true,

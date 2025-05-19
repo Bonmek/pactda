@@ -12,6 +12,7 @@ import ContractDetail from './pages/ContractDetail'
 import Home from './pages/Home'
 import About from './pages/About'
 import Docs from './pages/Docs'
+import UpdateContract from './pages/UpdateContract'
 
 interface HomeProps {
   selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
@@ -86,5 +87,9 @@ export const router = createBrowserRouter([
   {
     path: '/contract/:id',
     element: <RouteWrapper component={ContractDetail} />,
+  },
+  {
+    path: '/update/:id',
+    element: <RouteWrapper component={UpdateContract} />,
   },
 ])

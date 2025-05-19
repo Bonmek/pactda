@@ -154,8 +154,17 @@
 .bg-grid-white {
   --grid-size: 24px;
   --grid-strength: 1;
-  background-image: linear-gradient(to right, rgba(255, 255, 255, var(--grid-strength)) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, var(--grid-strength)) 1px, transparent 1px);
+  background-image:
+    linear-gradient(
+      to right,
+      rgba(255, 255, 255, var(--grid-strength)) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, var(--grid-strength)) 1px,
+      transparent 1px
+    );
   background-size: var(--grid-size) var(--grid-size);
 }
 
