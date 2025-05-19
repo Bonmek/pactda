@@ -1,0 +1,147 @@
+/**
+ * Responsive utilities and styles for PactDA
+ * These styles complement the existing UI with responsive adjustments
+ */
+
+/* Extra small devices */
+@media (max-width: 575.98px) {
+  .xs\:hidden {
+    display: none !important;
+  }
+  
+  .xs\:block {
+    display: block !important;
+  }
+
+  .xs\:flex {
+    display: flex !important;
+  }
+}
+
+/* Small devices (phones) */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .sm\:hidden {
+    display: none !important;
+  }
+  
+  .sm\:block {
+    display: block !important;
+  }
+
+  .sm\:flex {
+    display: flex !important;
+  }
+}
+
+/* Medium devices (tablets) */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .md\:text-sm {
+    font-size: 0.875rem !important;
+  }
+  
+  .md\:px-4 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+/* Large devices (desktops) */
+@media (min-width: 992px) {
+  .lg\:px-6 {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+}
+
+/* Safe area insets for modern mobile browsers */
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-left {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+  }
+  
+  .safe-right {
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+  
+  .safe-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+}
+
+/* Responsive text utilities */
+@media (max-width: 767.98px) {
+  .responsive-text-sm {
+    font-size: 0.875rem !important;
+  }
+  
+  .responsive-heading-md {
+    font-size: 1.5rem !important;
+    line-height: 2rem !important;
+  }
+  
+  .responsive-heading-lg {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem !important;
+  }
+}
+
+/* Mobile navigation improvements */
+.mobile-nav-item {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.mobile-nav-item::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(to right, #8b5cf6, #3b82f6);
+  transition: width 0.3s ease;
+}
+
+.mobile-nav-item:hover::after,
+.mobile-nav-item.active::after {
+  width: 100%;
+}
+
+/* Responsive card layouts */
+@media (max-width: 767.98px) {
+  .responsive-card-grid {
+    grid-template-columns: repeat(1, 1fr) !important;
+    gap: 1rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .responsive-card-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Responsive buttons */
+.responsive-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .responsive-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+/* Enhance mobile touch targets */
+@media (max-width: 767.98px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

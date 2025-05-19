@@ -7,6 +7,7 @@ import { useLocation } from 'react-router-dom'
 import GlobalEffects from '../Effects/GlobalEffects'
 import PageTransition from '../Effects/PageTransition'
 import PatternBackground from '../Effects/PatternBackground'
+import CustomCursor from '../CustomCursor'
 
 import styles from './Layout.module.css'
 
@@ -67,12 +68,15 @@ const Layout: React.FC<LayoutProps> = ({
         y: e.clientY / window.innerHeight,
       })
     }
-
+    
     window.addEventListener('mousemove', handleMouseMove)
     return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
+  
   return (
     <div className="flex flex-col min-h-screen bg-gray-900 text-gray-100 relative overflow-hidden">
+      {/* Custom animated cursor */}
+      <CustomCursor />
       {/* Interactive pattern background */}
       <PatternBackground
         density={40}

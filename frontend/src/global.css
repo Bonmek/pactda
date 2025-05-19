@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import './styles/header-effects.css';
+@import './styles/cursor.css';
+@import './styles/responsive.css';
+@import './styles/cursor-discovery.css';
 /*
   ---break---
 */

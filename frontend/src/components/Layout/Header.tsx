@@ -188,9 +188,11 @@ const Header: React.FC<HeaderProps> = ({
       clearTimeout(timer)
     }
   }, [])
-
   // Mouse parallax state
   const [mouse, setMouse] = useState({ x: 0.5, y: 0.5 })
+  // Add state for mobile menu
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
   // Listen for mouse movement for parallax
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -385,11 +387,40 @@ const Header: React.FC<HeaderProps> = ({
                     strokeLinejoin="round"
                   />
                 </svg>
-              </div>
-              <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-transform duration-300">
+              </div>              <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-transform duration-300">
                 PactDA
               </span>
             </Link>
+            {/* Mobile menu button */}
+            <button 
+              className="md:hidden ml-4 p-2 rounded-md bg-indigo-900/50 border border-indigo-500/30 text-indigo-300"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="20" 
+                height="20" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                {mobileMenuOpen ? (
+                  <>
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </>
+                ) : (
+                  <>
+                    <line x1="4" y1="8" x2="20" y2="8"></line>
+                    <line x1="4" y1="16" x2="20" y2="16"></line>
+                  </>
+                )}
+              </svg>
+            </button>
             <nav className="hidden md:flex ml-8 gap-2">
               <Link
                 to="/"
@@ -513,11 +544,10 @@ const Header: React.FC<HeaderProps> = ({
                 </svg>
                 Docs
               </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
+            </nav>          </div>
+          <div className="flex items-center gap-2 md:gap-4">
             <button
-              className="relative px-6 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold border border-indigo-500/50 shadow-lg group overflow-hidden rounded-md backdrop-blur-sm"
+              className="relative hidden md:flex px-4 md:px-6 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold border border-indigo-500/50 shadow-lg group overflow-hidden rounded-md backdrop-blur-sm"
               onClick={(e) => {
                 navigate('/create-contract')
               }}
@@ -539,15 +569,14 @@ const Header: React.FC<HeaderProps> = ({
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="16"></line>
                   <line x1="8" y1="12" x2="16" y2="12"></line>
-                </svg>
-                Contract
+                </svg>                Contract
               </span>
             </button>
             <div className="relative" ref={dropdownRef}>
               <button
                 disabled={isLoading}
                 onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
-                className={`wallet-btn relative flex items-center gap-2 px-4 py-2 rounded-md border ${
+                className={`wallet-btn relative flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 rounded-md border text-sm md:text-base ${
                   isWalletConnected || isLoading
                     ? 'bg-gray-900 border-indigo-500/30'
                     : 'bg-indigo-600 border-blue-400/30'
@@ -578,12 +607,11 @@ const Header: React.FC<HeaderProps> = ({
                     </svg>
                     Loading...
                   </span>
-                ) : isWalletConnected ? (
-                  <>
-                    <span className="w-7 h-7 flex items-center justify-center rounded-md bg-indigo-700 border border-indigo-400/30 font-mono text-sm relative z-10">
+                ) : isWalletConnected ? (                  <>
+                    <span className="w-6 md:w-7 h-6 md:h-7 flex items-center justify-center rounded-md bg-indigo-700 border border-indigo-400/30 font-mono text-sm relative z-10">
                       {getConnectedAddress()?.slice(2, 4) || 'U'}
                     </span>
-                    <span className="font-mono text-sm relative z-10">
+                    <span className="font-mono text-xs md:text-sm relative z-10 hidden xs:block">
                       {truncateAddress(getConnectedAddress() || '')}
                     </span>
                     <svg
@@ -709,11 +737,188 @@ const Header: React.FC<HeaderProps> = ({
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              )}            </div>
           </div>
         </div>
       </header>
+      
+      {/* Mobile Navigation Drawer */}
+      <div className={`fixed inset-0 z-50 md:hidden ${mobileMenuOpen ? 'block' : 'hidden'}`}>
+        {/* Backdrop */}
+        <div 
+          className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm"
+          onClick={() => setMobileMenuOpen(false)}
+        ></div>
+        
+        {/* Slide-out navigation panel */}
+        <div className="absolute right-0 top-0 bottom-0 w-3/4 max-w-sm bg-gradient-to-b from-gray-900 to-indigo-900/90 border-l border-indigo-500/30 shadow-xl flex flex-col">
+          <div className="p-4 border-b border-indigo-500/30 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-400 flex items-center justify-center rounded-lg shadow-lg relative overflow-hidden border border-indigo-400/30">
+                <div className="absolute inset-0 bg-grid-white/10 bg-grid-8"></div>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="relative z-10"
+                >
+                  <path
+                    d="M12 2L4 6V12C4 15.31 7.58 20 12 22C16.42 20 20 15.31 20 12V6L12 2Z"
+                    stroke="white"
+                    strokeWidth="2"
+                    fill="rgba(255,255,255,0.1)"
+                  />
+                  <path
+                    d="M8 11L11 14L16 9"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400">
+                PactDA
+              </span>
+            </div>
+            <button 
+              className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          
+          <nav className="flex flex-col p-4 space-y-4">
+            <Link
+              to="/"
+              className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24">
+                <path
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0h6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Home
+            </Link>
+            <Link
+              to="/workflow"
+              className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24">
+                <path
+                  d="M4 17v-2a4 4 0 014-4h8a4 4 0 014 4v2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+              </svg>
+              Workflow
+            </Link>
+            <Link
+              to="/how-to-use"
+              className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24">
+                <path
+                  d="M12 20h9"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M12 4v16m0 0l-4-4m4 4l4-4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              How To Use
+            </Link>
+            <Link
+              to="/about"
+              className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg className="w-5 h-5 text-pink-400" fill="none" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                <path
+                  d="M12 16v-4m0-4h.01"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              About
+            </Link>
+            <Link
+              to="/docs"
+              className="flex items-center gap-3 py-3 px-4 rounded-md hover:bg-indigo-800/40 text-gray-300 hover:text-white transition"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24">
+                <rect
+                  x="4"
+                  y="4"
+                  width="16"
+                  height="16"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M8 8h8M8 12h8M8 16h4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Docs
+            </Link>
+            
+            <div className="pt-4 mt-4 border-t border-indigo-500/30">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/create-contract');
+                }}
+                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold border border-indigo-500/50 shadow-lg overflow-hidden rounded-md backdrop-blur-sm flex items-center justify-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+                Create Contract
+              </button>
+            </div>
+          </nav>
+        </div>
+      </div>
     </>
   )
 }
