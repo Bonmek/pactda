@@ -107,6 +107,78 @@ export const getContracts = async (
     })
 }
 
+export const buildAddMilestoneTx = (
+  contractId: string,
+  milestoneTitle: string,
+  description?: string,
+  startDate?: number,
+  endDate?: number,
+  status?: number
+): Transaction => {
+  if (!contractId) {
+    throw new Error('Contract ID is required');
+  }
+
+  if (!milestoneTitle) {
+    throw new Error('Milestone Title is required');
+  }
+
+  const txb = new Transaction();
+  const args = [];
+
+  // === Helper Functions ===
+  const encodeBytes = (data: string) => 
+    Array.from(new TextEncoder().encode(data));
+
+  // === Contract ID (address) ===
+  args.push(txb.pure.address(contractId));
+
+  // === Milestone Title (string) ===
+  args.push(txb.pure.string(milestoneTitle));
+
+  // === Description (Option<vector<u8>>) ===
+  args.push(
+    description && description.trim() !== ''
+      ? txb.pure.option('vector<u8>', encodeBytes(description))
+      : txb.pure.option('vector<u8>', null)
+  );
+
+  // === Start Date (Option<u64>) ===
+  args.push(
+    startDate !== undefined
+      ? txb.pure.option('u64', BigInt(startDate))
+      : txb.pure.option('u64', null)
+  );
+
+  // === End Date (Option<u64>) ===
+  args.push(
+    endDate !== undefined
+      ? txb.pure.option('u64', BigInt(endDate))
+      : txb.pure.option('u64', null)
+  );
+
+  // === Status (Option<u8>) ===
+  args.push(
+    status !== undefined
+      ? txb.pure.option('u8', status)
+      : txb.pure.option('u8', null)
+  );
+
+  // === Move Call ===
+  try {
+    txb.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::add_milestone`,
+      arguments: args,
+    });
+    return txb;
+  } catch (error) {
+    throw new Error(
+      `Failed to build transaction: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+};
+
+
 // Export functions for contract interactions
 export {
   buildSignContractAsPartyATx,
@@ -116,4 +188,4 @@ export {
   buildCompleteMilestoneTx,
   buildReleasePaymentTx,
   buildCancelContractTx,
-} from './PactdaService'
+} from './PactdaService';

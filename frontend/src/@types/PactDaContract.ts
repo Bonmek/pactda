@@ -3,11 +3,16 @@ export type PactDaContract = {
   version: string
   digest: string
   escrowId: string | null
-  milestones: any
+  milestones: any 
   partyA: string
   partyASigned: boolean
   partyB: string
   partyBSigned: boolean
   status: number
-  termsReference: string
+  termsReference: string 
+  title: string
+  contractStartDate: number | null
+  contractDeadlineDate: number | null
+  contractType: number | null
+  metadata: string | null
 }
