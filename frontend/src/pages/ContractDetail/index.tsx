@@ -239,12 +239,14 @@ export default function ContractDetail() {
                   {contract &&
                     contract.status === 0 &&
                     address === contract.partyA && (
+                      <div className="w-full md:w-50">
                       <button
-                        className="bg-gradient-to-r from-indigo-500 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl px-6 py-2 text-base font-semibold shadow-lg transition mb-2 mt-4 pulse-effect"
-                        onClick={() => navigate(`/update/${contract.objectId}`)}
+                        className="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl px-6 py-2 text-base font-semibold shadow-lg transition mb-2 mt-4 pulse-effect"
+                        onClick={() => navigate(`/contract/${contract.objectId}/edit`)}
                       >
                         ✏️ Update Contract
                       </button>
+                      </div>
                     )}
                 </div>
                 {contract && (

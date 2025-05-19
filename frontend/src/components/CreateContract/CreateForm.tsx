@@ -513,7 +513,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
           </span>
         </div>
         {/* Progress bar */}
-        <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mx-auto px-4">
+        <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden mx-auto px-0">
           <div
             className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-500 ease-out rounded-full"
             style={{ width: `${completionPercentage}%` }}

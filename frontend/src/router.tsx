@@ -89,7 +89,7 @@ export const router = createBrowserRouter([
     element: <RouteWrapper component={ContractDetail} />,
   },
   {
-    path: '/update/:id',
+    path: '/contract/:id/edit',
     element: <RouteWrapper component={UpdateContract} />,
   },
 ])

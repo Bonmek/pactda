@@ -79,11 +79,11 @@ const Dashboard = () => {
                 className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Roles</option>
-                <option value="partyA">I'm Party A</option>
-                <option value="partyB">I'm Party B</option>
+                <option value="partyA">Promisee</option>
+                <option value="partyB">Promiser</option>
               </select>
 
-              <select
+              {/* <select
                 onChange={(e) => handleTypeChange(e.target.value)}
                 value={typeSelected}
                 className="bg-[#1E293B] text-sm text-white border border-[#334155] rounded-md px-3 py-2 md:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -93,7 +93,7 @@ const Dashboard = () => {
                 <option value="art">Art</option>
                 <option value="programming">Programming</option>
                 <option value="audit">Audit</option>
-              </select>
+              </select> */}
             </div>
 
             <button

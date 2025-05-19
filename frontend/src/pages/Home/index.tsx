@@ -72,7 +72,6 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            {' '}
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
               <Button
                 size="lg"
@@ -81,13 +80,13 @@ export default function Home() {
               >
                 <Link to="/dashboard">
                   <span className="relative z-10 flex items-center">
-                    Launch App{' '}
+                    View Contract
                     <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
                   </span>
                   <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                 </Link>
               </Button>
-            </motion.div>{' '}
+            </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
               <Button
                 variant="outline"

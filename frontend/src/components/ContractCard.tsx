@@ -18,7 +18,7 @@ export const ContractCard: React.FC<Props> = ({ contract, address }) => {
   }
 
   const onSeeDetail = (id: string) => navigate(`/contract/${id}`)
-  const onEdit = (id: string) => console.log('Edit:', id)
+  const onEdit = (id: string) => navigate(`/contract/${id}/edit`)
   const onCancel = (id: string) => console.log('Cancel:', id)
 
   // Close the menu if clicked outside
@@ -85,12 +85,14 @@ export const ContractCard: React.FC<Props> = ({ contract, address }) => {
                 🔍 View
               </button>
               <button
+                disabled={true}
                 onClick={() => onEdit(contract.contract_id)}
                 className="block w-full px-4 py-2 text-left text-sm text-white hover:bg-[#3A4A6A] rounded-none transition duration-150 cursor-pointer"
               >
                 ✏️ Edit
               </button>
               <button
+                disabled={true}
                 onClick={() => onCancel(contract.contract_id)}
                 className="block w-full px-4 py-2 text-left text-sm text-white hover:bg-[#3A4A6A] rounded-none transition duration-150 cursor-pointer"
               >

@@ -8,6 +8,7 @@ import {
 } from '@mysten/dapp-kit'
 import { useAccount, useDisconnect, useConnect } from 'wagmi'
 import { useAuth } from '@/contexts/AuthContext'
+import { toast } from 'sonner'
 
 interface HeaderProps {
   selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
@@ -51,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({
   const handleConnectMetaMask = async () => {
     const metamaskConnector = connectors.find((c) => c.id === 'injected')
     if (!metamaskConnector) {
-      console.error('MetaMask not found')
+      toast.error('MetaMask not found')
       return
     }
 
@@ -63,9 +64,9 @@ const Header: React.FC<HeaderProps> = ({
       setSelectedWalletType('metamask')
       // Then trigger the connect popup
       await connectEth({ connector: metamaskConnector })
+      toast.success('Connected to MetaMask')
     } catch (error) {
-      // If connection fails or is rejected, reset wallet type
-      console.error('MetaMask connection failed:', error)
+      toast.error('MetaMask connection failed')
       setSelectedWalletType(null)
     }
   }
@@ -80,7 +81,7 @@ const Header: React.FC<HeaderProps> = ({
       const suiWallet = wallets[0]
 
       if (!suiWallet) {
-        console.error('No Sui wallet available')
+        toast.error('No Sui wallet available')
         return
       }
 
@@ -88,9 +89,9 @@ const Header: React.FC<HeaderProps> = ({
       setSelectedWalletType('sui')
       // Then trigger the connect popup (modal)
       connectSuiWallet({ wallet: suiWallet })
+      toast.success('Connected to Sui wallet')
     } catch (error) {
-      // If connection fails or is rejected, reset wallet type
-      console.error('Sui wallet connection failed:', error)
+      toast.error('Sui wallet connection failed')
       setSelectedWalletType(null)
     }
   }
@@ -101,8 +102,9 @@ const Header: React.FC<HeaderProps> = ({
       setWalletDropdownOpen(false)
       setSelectedWalletType('google')
       await login({ authType: 'google' }) // ใช้ context login
+      toast.success('Connected with Google')
     } catch (error) {
-      console.error('Google login failed:', error)
+      toast.error('Google login failed')
       setSelectedWalletType(null)
     }
   }
@@ -113,8 +115,9 @@ const Header: React.FC<HeaderProps> = ({
       setWalletDropdownOpen(false)
       setSelectedWalletType('facebook')
       await login({ authType: 'facebook' }) // ใช้ context login
+      toast.success('Connected with Facebook')
     } catch (error) {
-      console.error('Facebook login failed:', error)
+      toast.error('Facebook login failed')
       setSelectedWalletType(null)
     }
   }
@@ -144,14 +147,16 @@ const Header: React.FC<HeaderProps> = ({
   const handleDisconnect = () => {
     if (selectedWalletType === 'metamask') {
       disconnectEth()
+      toast.success('Disconnected MetaMask')
     } else if (selectedWalletType === 'sui') {
-      // Properly disconnect the Sui wallet
       disconnectSui()
+      toast.success('Disconnected Sui wallet')
     } else if (
       selectedWalletType === 'google' ||
       selectedWalletType === 'facebook'
     ) {
       logout() // ใช้ context logout
+      toast.success('Logged out')
     }
 
     // Clear selected wallet type
@@ -365,29 +370,12 @@ const Header: React.FC<HeaderProps> = ({
             <Link to="/" className="flex items-center gap-2 group">
               {/* Redesigned PactDA Logo */}
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-400 flex items-center justify-center rounded-lg shadow-lg relative overflow-hidden border border-indigo-400/30">
-                <div className="absolute inset-0 bg-grid-white/10 bg-grid-8"></div>
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="relative z-10"
-                >
-                  <path
-                    d="M12 2L4 6V12C4 15.31 7.58 20 12 22C16.42 20 20 15.31 20 12V6L12 2Z"
-                    stroke="white"
-                    strokeWidth="2"
-                    fill="rgba(255,255,255,0.1)"
-                  />
-                  <path
-                    d="M8 11L11 14L16 9"
-                    stroke="white"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>{' '}
+                <img
+                  src="/public/icon.png"
+                  alt="PactDA Logo"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:opacity-100 transition-opacity duration-300"
+                ></img>
+              </div>
               <span className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-cyan-400 transition-transform duration-300">
                 PactDA
               </span>
