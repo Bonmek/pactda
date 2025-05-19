@@ -10,7 +10,7 @@ interface MetadataCardProps {
   metadata?: string
 }
 
-const MetadataCard: React.FC<MetadataCardProps> = ({ metadata = '...' }) => (
+const MetadataCard: React.FC<MetadataCardProps> = ({ metadata }) => (
   <motion.div variants={itemVariants}>
     <DetailSection title="Metadata / Additional Links">
       <pre className="text-xs bg-gray-800 p-3 rounded border border-gray-700">

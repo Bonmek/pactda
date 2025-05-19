@@ -76,6 +76,11 @@ export const getContracts = async (
     termsReference: new TextDecoder().decode(
       Uint8Array.from((fields as any).terms_reference),
     ),
+    title: (fields as any).title,
+    contractType: (fields as any).contract_type,
+    contractStartDate: (fields as any).contract_start_date,
+    contractDeadlineDate: (fields as any).contract_end_date,
+    metadata: (fields as any).metadata,
   }
 
   return contract
@@ -90,11 +95,11 @@ export const buildCreateContractTx = (
   endDate?: number, // Option<u64> (timestamp)
   metadata?: string, // Option<vector<u8>>
 ): Transaction => {
-  const txb = new Transaction();
+  const txb = new Transaction()
 
   // Validate inputs to prevent errors
   if (!title) {
-    throw new Error('Title is required');
+    throw new Error('Title is required')
   }
 
   console.log('buildCreateContractTx inputs (raw):', {
@@ -105,8 +110,8 @@ export const buildCreateContractTx = (
     startDate,
     endDate,
     metadata,
-  });
-  
+  })
+
   console.log('buildCreateContractTx inputs (processed):', {
     title,
     partyBAddress: partyBAddress || 'null/undefined',
@@ -115,90 +120,98 @@ export const buildCreateContractTx = (
     contractType: contractType !== undefined ? contractType : 'null/undefined',
     contractTypeType: typeof contractType,
     termsReference: termsReference || 'null/undefined',
-    startDate: startDate !== undefined ? new Date(startDate * 1000).toISOString() : 'null/undefined',
-    endDate: endDate !== undefined ? new Date(endDate * 1000).toISOString() : 'null/undefined',
+    startDate:
+      startDate !== undefined
+        ? new Date(startDate * 1000).toISOString()
+        : 'null/undefined',
+    endDate:
+      endDate !== undefined
+        ? new Date(endDate * 1000).toISOString()
+        : 'null/undefined',
     metadata: metadata || 'null/undefined',
-  });
-  
+  })
+
   // Parameter order based on the Move function signature:
-  // party_b: Option<address>, title: String, contract_type: Option<u8>, 
-  // terms_reference: Option<vector<u8>>, contract_start_date: Option<u64>, 
+  // party_b: Option<address>, title: String, contract_type: Option<u8>,
+  // terms_reference: Option<vector<u8>>, contract_start_date: Option<u64>,
   // contract_deadline_date: Option<u64>, metadata: Option<vector<u8>>
-  const args = [    // First arg: party_b: Option<address>
-    partyBAddress && partyBAddress.trim() !== '' 
+  const args = [
+    // First arg: party_b: Option<address>
+    partyBAddress && partyBAddress.trim() !== ''
       ? (() => {
-          console.log('partyBAddress before encoding:', partyBAddress);
-          const isValidAddress = /^0x[a-fA-F0-9]{64}$/.test(partyBAddress);
+          console.log('partyBAddress before encoding:', partyBAddress)
+          const isValidAddress = /^0x[a-fA-F0-9]{64}$/.test(partyBAddress)
           if (!isValidAddress) {
-            throw new Error(`Invalid partyBAddress format: ${partyBAddress}. Must be a 64-character hex string starting with 0x.`);
+            throw new Error(
+              `Invalid partyBAddress format: ${partyBAddress}. Must be a 64-character hex string starting with 0x.`,
+            )
           }
-          try {            // Make sure we have a valid party B address to encode
-            const encodedAddress = txb.pure.address(partyBAddress);
-            console.log('Validated and encoded partyBAddress (type):', typeof encodedAddress);
-            // We need to return the proper option type with the encoded address
-            return txb.pure.option('address', encodedAddress);
+          try {
+            return txb.pure.option('address', partyBAddress)
           } catch (error) {
-            console.error('Error encoding partyBAddress:', error);
-            throw new Error(`Failed to encode party B address: ${partyBAddress}. Error: ${error instanceof Error ? error.message : String(error)}`);
+            console.error('Error encoding partyBAddress:', error)
+            throw new Error(
+              `Failed to encode party B address: ${partyBAddress}. Error: ${error instanceof Error ? error.message : String(error)}`,
+            )
           }
-        })() 
+        })()
       : (() => {
-          console.log('Using None/null for party_b address');
-          return txb.pure.option('address', null);
+          console.log('Using None/null for party_b address')
+          return txb.pure.option('address', null)
         })(), // Pass null for empty/undefined value
-      
+
     // Second arg: title: String
     txb.pure.string(title),
-    
+
     // Third arg: contract_type: Option<u8>
-    contractType !== undefined 
+    contractType !== undefined
       ? (() => {
-          console.log('contractType:', contractType);
-          return txb.pure.option('u8', contractType);
-        })() 
+          console.log('contractType:', contractType)
+          return txb.pure.option('u8', contractType)
+        })()
       : txb.pure.option('u8', null),
-    
+
     // Fourth arg: terms_reference: Option<vector<u8>>
-    termsReference && termsReference.trim() !== '' 
+    termsReference && termsReference.trim() !== ''
       ? (() => {
-          const encoded = Array.from(new TextEncoder().encode(termsReference));
-          console.log('Encoded termsReference:', encoded);
-          return txb.pure.option('vector<u8>', encoded);
-        })() 
+          const encoded = Array.from(new TextEncoder().encode(termsReference))
+          console.log('Encoded termsReference:', encoded)
+          return txb.pure.option('vector<u8>', encoded)
+        })()
       : txb.pure.option('vector<u8>', null),
-      
+
     // Fifth arg: contract_start_date: Option<u64>
-    startDate !== undefined 
+    startDate !== undefined
       ? (() => {
-          console.log('startDate:', startDate);
-          return txb.pure.option('u64', startDate);
-        })() 
+          console.log('startDate:', startDate)
+          return txb.pure.option('u64', startDate)
+        })()
       : txb.pure.option('u64', null),
-      
+
     // Sixth arg: contract_deadline_date: Option<u64>
-    endDate !== undefined 
+    endDate !== undefined
       ? (() => {
-          console.log('endDate:', endDate);
-          return txb.pure.option('u64', endDate);
-        })() 
+          console.log('endDate:', endDate)
+          return txb.pure.option('u64', endDate)
+        })()
       : txb.pure.option('u64', null),
-      
+
     // Seventh arg: metadata: Option<vector<u8>>
-    metadata && metadata.trim() !== '' 
+    metadata && metadata.trim() !== ''
       ? (() => {
-          const encoded = Array.from(new TextEncoder().encode(metadata));
-          console.log('Encoded metadata:', encoded);
-          return txb.pure.option('vector<u8>', encoded);
-        })() 
+          const encoded = Array.from(new TextEncoder().encode(metadata))
+          console.log('Encoded metadata:', encoded)
+          return txb.pure.option('vector<u8>', encoded)
+        })()
       : txb.pure.option('vector<u8>', null),
-  ];
+  ]
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::create_contract`,
     arguments: args,
-  });
+  })
 
-  return txb;
-};
+  return txb
+}
 
 export const buildSignContractAsPartyATx = (contractId: string) => {
   const txb = new Transaction()
@@ -220,16 +233,12 @@ export const buildSignContractAsPartyBTx = (contractId: string) => {
   return txb
 }
 
-export const buildApproveContractTx = (
-  contractId: string,
-): Transaction => {
+export const buildApproveContractTx = (contractId: string): Transaction => {
   const txb = new Transaction()
 
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::approve_contract`,
-    arguments: [
-      txb.object(contractId),
-    ],
+    arguments: [txb.object(contractId)],
   })
 
   return txb
@@ -263,10 +272,7 @@ export const buildCompleteMilestoneTx = (
 
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::complete_milestone`,
-    arguments: [
-      txb.object(contractId),
-      txb.pure.u64(milestoneId),
-    ],
+    arguments: [txb.object(contractId), txb.pure.u64(milestoneId)],
   })
 
   return txb
@@ -280,25 +286,18 @@ export const buildReleasePaymentTx = (
 
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::release_payment`,
-    arguments: [
-      txb.object(contractId),
-      txb.pure.u64(milestoneId),
-    ],
+    arguments: [txb.object(contractId), txb.pure.u64(milestoneId)],
   })
 
   return txb
 }
 
-export const buildCancelContractTx = (
-  contractId: string,
-): Transaction => {
+export const buildCancelContractTx = (contractId: string): Transaction => {
   const txb = new Transaction()
 
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::cancel_contract`,
-    arguments: [
-      txb.object(contractId),
-    ],
+    arguments: [txb.object(contractId)],
   })
 
   return txb

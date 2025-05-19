@@ -69,13 +69,13 @@ export default function ContractDetail() {
           <Card className="rounded-2xl shadow-lg bg-gray-800">
             <CardContent className="p-8">
               <motion.h1
-                className="text-2xl md:text-4xl font-light tracking-tight mb-6 text-center"
+                className="text-2xl md:text-4xl font-light tracking-tight mb-6 p-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.8 }}
               >
                 <span className="bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">
-                  Smart Contract Agreement
+                  {contract && contract.title}
                 </span>
               </motion.h1>
               <div className="grid grid-cols-1 md:grid-cols-[70%_30%] gap-4 p-4">
@@ -88,7 +88,8 @@ export default function ContractDetail() {
                   {contract && (
                     <>
                       <PartiesCard {...contract} />
-                      <KeyTermsCard {...contract} /> <MetadataCard />
+                      <KeyTermsCard {...contract} />
+                      <MetadataCard />
                       <EscrowCard address={''} balance={''} status={'Active'} />
                       <MilestonesCard milestones={[]} />
                     </>
@@ -103,9 +104,11 @@ export default function ContractDetail() {
                 >
                   {contract && (
                     <>
-                      <ActionsCard onSign={function (): void {
-                        throw new Error('Function not implemented.')
-                      } } />
+                      <ActionsCard
+                        onSign={function (): void {
+                          throw new Error('Function not implemented.')
+                        }}
+                      />
                       <ActivityTimelineCard activities={[]} />
                     </>
                   )}

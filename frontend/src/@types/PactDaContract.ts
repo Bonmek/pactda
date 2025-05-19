@@ -10,4 +10,9 @@ export type PactDaContract = {
   partyBSigned: boolean
   status: number
   termsReference: string 
+  title: string
+  contractStartDate: number | null
+  contractDeadlineDate: number | null
+  contractType: number | null
+  metadata: string | null
 }
