@@ -276,7 +276,6 @@ module pactda::pactda_bridge_integration_tests {
         next_tx(&mut scenario, PARTY_A);
         {
             let mut contract = test::take_shared<PactDaContract>(&mut scenario);
-            std::debug::print(&contract);
             let ctx = test::ctx(&mut scenario);
 
             pactda::update_details_from_bridge(

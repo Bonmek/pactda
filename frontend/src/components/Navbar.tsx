@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, Wallet, ChevronDown, LogOut } from 'lucide-react'
-import { Link, useLocation } from 'react-router'
-import { useWalletKit } from '@mysten/wallet-kit'
+import { Link, useLocation } from 'react-router-dom' // Corrected: useLocation is from react-router-dom
+import { useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit' // Corrected: useWalletKit is deprecated, use useCurrentAccount and useDisconnectWallet
 import { Button } from './ui/button'
+import UserBalance from './Wallet/UserBalance' // Import the UserBalance component
 
 const Navbar = () => {
-  const { currentAccount, disconnect } = useWalletKit()
+  const currentAccount = useCurrentAccount()
+  const { mutate: disconnect } = useDisconnectWallet()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [open, setOpen] = useState<boolean>(false)
@@ -91,8 +93,11 @@ const Navbar = () => {
                   </Link>
                 ))}
               </div>
-              {/* Connect Wallet Button */}
-              {currentAccount?.address ? (
+              {/* User Balance Display */}
+              {currentAccount && <UserBalance />}
+
+              {/* Connect Wallet Button / Account Info Dropdown */}
+              {currentAccount ? (
                 <div className="relative group">
                   <motion.button
                     className="flex items-center space-x-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 text-white hover:shadow-lg hover:shadow-blue-700/30 transition-all duration-300 group"

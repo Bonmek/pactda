@@ -9,6 +9,8 @@ import {
 import { useAccount, useDisconnect, useConnect } from 'wagmi'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { getSuiBalance } from '@/service/PactdaService'
+import { useSuiClient } from '@mysten/dapp-kit'
 
 interface HeaderProps {
   selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null
@@ -41,12 +43,33 @@ const Header: React.FC<HeaderProps> = ({
   // Move the useWallets hook call to the component top level
   const wallets = useWallets()
 
+  // Add SUI balance state for header
+  const suiClient = useSuiClient()
+  const [suiBalance, setSuiBalance] = useState<string | null>(null)
+
   // Determine if any wallet is connected
   const isWalletConnected =
     (selectedWalletType === 'sui' && suiAccount) ||
     (selectedWalletType === 'metamask' && isEthConnected) ||
     ((selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
       zkloginAddress)
+
+  // Fetch SUI balance when Sui wallet/account changes
+  useEffect(() => {
+    let cancelled = false
+    async function fetchBalance() {
+      if (selectedWalletType === 'sui' && suiAccount?.address) {
+        const balance = await getSuiBalance(suiClient, suiAccount.address)
+        if (!cancelled) setSuiBalance(balance)
+      } else {
+        setSuiBalance(null)
+      }
+    }
+    fetchBalance()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedWalletType, suiAccount?.address, suiClient])
 
   // Handle MetaMask connection
   const handleConnectMetaMask = async () => {
@@ -606,6 +629,12 @@ const Header: React.FC<HeaderProps> = ({
                     <span className="font-mono text-xs md:text-sm relative z-10 hidden xs:block">
                       {truncateAddress(getConnectedAddress() || '')}
                     </span>
+                    {/* SUI Balance display for Sui wallet */}
+                    {selectedWalletType === 'sui' && suiBalance !== null && (
+                      <span className="ml-2 text-xs text-blue-300 bg-gray-800/60 px-2 py-0.5 rounded font-mono border border-blue-400/20">
+                        {suiBalance} SUI
+                      </span>
+                    )}
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="14"

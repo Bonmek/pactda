@@ -2,7 +2,7 @@
 name = "PactDa"
 version = "0.2.0"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0xc7a5f6ab5a4af142dac792d404e0d0aac30e7940f16672dc78bf733304e8e88a"
+published-at = "0x557163abf7ece444d180ca6467a58af97687b2f2f105a34b88158ac16e1bdf73"
 # license = ""           # e.g., "MIT", "GPL", "Apache 2.0"
 # authors = ["..."]      # e.g., ["Joe Smith (joesmith@noemail.com)", "John Snow (johnsnow@noemail.com)"]
 

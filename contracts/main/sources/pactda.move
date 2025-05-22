@@ -534,29 +534,8 @@ module pactda::pactda;
         transfer::share_object(escrow);
         create_receipt(object::id_address(contract), string::utf8(b"escrow_funded"), ctx);
     }    
-    /// Submits the contract for review.
-    /// This is a simplified version that maintains compatibility with existing code.
     public entry fun submit_contract(
         contract: &mut PactDaContract,
-        ctx: &mut TxContext,
-    ) {
-        submit_contract_with_bridge(
-            contract,
-            option::none(),
-            option::none(),
-            option::none(),
-            ctx
-        );
-    }
-
-    /// Submits the contract for review.
-    /// If the contract has cross-chain parties, and a bridge is provided,
-    /// a message will be sent to create a contract stub on the side chain.
-    public entry fun submit_contract_with_bridge(
-        contract: &mut PactDaContract,
-        bridge_opt: Option<&mut pactda::pactda_wormhole_bridge::PactDaBridge>,
-        wormhole_state_opt: Option<&mut wormhole::state::State>,
-        fee_coin_opt: Option<Coin<SUI>>,
         ctx: &mut TxContext,
     ) {
         let sender = tx_context::sender(ctx);
@@ -564,47 +543,8 @@ module pactda::pactda;
         assert!(contract.status == CONTRACT_STATUS_DRAFT, EInvalidStatus);
 
         contract.status = CONTRACT_STATUS_PENDING;
-
-        // Check if this is a cross-chain contract and if all required components are provided
-        if (option::is_some(&contract.cross_chain_parties) && 
-            option::is_some(&bridge_opt) && 
-            option::is_some(&wormhole_state_opt) && 
-            option::is_some(&fee_coin_opt)) {
-            
-            let bridge = option::borrow_mut(&mut bridge_opt);
-            let wormhole_state = option::borrow_mut(&mut wormhole_state_opt);
-            let cross_chain_parties = option::borrow(&contract.cross_chain_parties);
-            
-            // Find party B's chain and address
-            let mut i = 0;
-            let len = vector::length(cross_chain_parties);
-            while (i < len) {
-                let party_info = vector::borrow(cross_chain_parties, i);
-                if (party_info.role == PARTY_ROLE_B) {
-                    // Create a contract stub on the side chain
-                    let message_ticket = pactda::pactda_wormhole_bridge::send_create_stub_message(
-                        bridge,
-                        party_info.chain_id,
-                        object::id(contract),
-                        contract.title,
-                        string::utf8(contract.terms_reference),
-                        ctx
-                    );
-                    
-                    // Publish the message to the Wormhole network using the Wormhole's own publish_message function
-                    wormhole::publish_message::publish_message(
-                        wormhole_state,
-                        message_ticket,
-                        option::extract(&mut fee_coin_opt),
-                        ctx
-                    );
-                    break;
-                };
-                i = i + 1;
-            };
-        };
-
         create_receipt(object::id_address(contract), string::utf8(b"contract_submitted"), ctx);
+
     }
 
     public entry fun release_payment(
@@ -642,16 +582,14 @@ module pactda::pactda;
             contract.status = CONTRACT_STATUS_COMPLETED;
         };
         create_receipt(object::id_address(contract), string::utf8(b"payment_released"), ctx);
-    }
-
-    public entry fun refund_payment(
+    }    public entry fun refund_payment(
         contract: &mut PactDaContract,
         escrow: &mut Escrow,
         ctx: &mut TxContext,
     ) {
         let sender = tx_context::sender(ctx);
         assert!(option::contains(&contract.escrow_id, &object::id(escrow)), EInvalidStatus);
-        assert!(sender == escrow.payee, EUnauthorized);
+        assert!(sender == escrow.payer, EUnauthorized); // Only the payer can initiate refunds
         assert!(escrow.status == ESCROW_STATUS_FUNDED, EInvalidStatus);
 
         let amount = balance::value(&escrow.balance);
@@ -776,6 +714,13 @@ module pactda::pactda;
         });
     }
 
+    public fun update_escrow_status(
+        escrow: &mut Escrow,
+        new_status: u8,
+    ) {
+        escrow.status = new_status;
+    }
+
     // === View Functions ===
     public fun is_milestone_submitted(contract: &PactDaContract, milestone_id: u64): bool {
         if (!option::is_some(&contract.milestones)) {
@@ -841,7 +786,7 @@ module pactda::pactda;
         string::utf8(contract.terms_reference)
     }
 
-    public fun get_milestone_details(contract: &PactDaContract, milestone_id: u64): (u64, vector<u8>, u64, u8) { // Changed String to vector<u8>
+    public fun get_milestone_details(contract: &PactDaContract, milestone_id: u64): (u64, vector<u8>, u64, u8) { 
         assert!(option::is_some(&contract.milestones), EInvalidMilestone);
         let milestones = option::borrow(&contract.milestones);
         assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
@@ -873,6 +818,22 @@ module pactda::pactda;
 
     public fun get_escrow_contract_agaddress(escrow: &Escrow): address {
         escrow.contract_address
+    }
+
+    public fun get_escrow_payer(escrow: &Escrow): address {
+        escrow.payer
+    }
+
+    public fun get_escrow_payee(escrow: &Escrow): address {
+        escrow.payee
+    }
+
+    public fun get_escrow_status(escrow: &Escrow): u8 {
+        escrow.status
+    }
+
+    public fun get_escrow_balance(escrow: &Escrow): u64 {
+        balance::value(&escrow.balance)
     }
 
     public fun are_all_milestones_approved(contract: &PactDaContract): bool {
@@ -949,7 +910,7 @@ module pactda::pactda;
         };
     }
 
-    public(package) fun update_details_from_bridge( // Changed visibility and parameters
+    public(package) fun update_details_from_bridge(
         contract: &mut PactDaContract,
         mut title_option: Option<vector<u8>>,
         mut terms_reference_option: Option<vector<u8>>,
@@ -988,14 +949,12 @@ module pactda::pactda;
         create_receipt(object::id_address(contract), string::utf8(b"details_updated_from_bridge"), ctx);
     }
 
-    public(package) fun submit_proof_from_bridge( // Changed visibility
+    public(package) fun submit_proof_from_bridge(
         contract: &mut PactDaContract,
         milestone_id: u64,
         proof_reference_bytes: vector<u8>,
         ctx: &mut TxContext
     ) {
-        // Similar to `submit_proof` but called by the bridge.
-        // No explicit sender check here (party_b check) as authorization is via bridge.
         assert!(contract.status == CONTRACT_STATUS_ACTIVE, EInvalidStatus);
         assert!(option::is_some(&contract.milestones), EInvalidMilestone);
 
@@ -1017,35 +976,36 @@ module pactda::pactda;
         CONTRACT_STATUS_PENDING
     }
 
-    #[test_only]
     public fun get_contract_status_active(): u8 {
         CONTRACT_STATUS_ACTIVE
     }
 
-    #[test_only]
     public fun get_contract_status_completed(): u8 {
         CONTRACT_STATUS_COMPLETED
+    }
+    
+    public fun get_contract_status_disputed(): u8 {
+        CONTRACT_STATUS_DISPUTED
     }
 
     #[test_only]
     public fun get_contract_status_cancelled(): u8 {
         CONTRACT_STATUS_CANCELLED
-    }    #[test_only]
+    }    
+    
+    #[test_only]
     public fun get_contract_status_draft(): u8 {
         CONTRACT_STATUS_DRAFT
     }
 
-    #[test_only]
     public fun get_escrow_status_funded(): u8 {
         ESCROW_STATUS_FUNDED
     }
 
-    #[test_only]
     public fun get_escrow_status_released(): u8 {
         ESCROW_STATUS_RELEASED
     }
 
-    #[test_only]
     public fun get_escrow_status_refunded(): u8 {
         ESCROW_STATUS_REFUNDED
     }
@@ -1060,7 +1020,6 @@ module pactda::pactda;
         MILESTONE_STATUS_SUBMITTED
     }
 
-    #[test_only]
     public fun get_milestone_status_approved(): u8 {
         MILESTONE_STATUS_APPROVED
     }
@@ -1091,9 +1050,12 @@ module pactda::pactda;
         contract.contract_type
     }
 
-    #[test_only]
     public fun get_milestones(contract: &PactDaContract): &Option<vector<Milestone>> {
         &contract.milestones
+    }
+
+    public fun get_contract_status(contract: &PactDaContract): u8 {
+        contract.status
     }
 
     #[test_only]
@@ -1105,7 +1067,6 @@ module pactda::pactda;
         vector::borrow(milestones, milestone_id)
     }
 
-    #[test_only]
     public fun get_milestone_status(milestone: &Milestone): u8 {
         milestone.status
     }
@@ -1116,18 +1077,15 @@ module pactda::pactda;
     }
 
     #[test_only]
-    /// Returns the milestone ID for testing
     public fun get_milestone_id(milestone: &Milestone): u64 {
         milestone.id
     }
 
     #[test_only]
-    /// Returns the milestone description hash for testing
     public fun get_milestone_description_hash(milestone: &Milestone): &vector<u8> { 
         &milestone.description_hash
     }
 
-    #[test_only]
     public fun get_milestone_value(milestone: &Milestone): u64 {
         milestone.value
     }

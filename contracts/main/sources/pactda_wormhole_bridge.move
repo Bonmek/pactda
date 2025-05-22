@@ -96,13 +96,9 @@ module pactda::pactda_wormhole_bridge;
 
     /// Stores key metadata about a processed VAA for logging and replay protection.
     public struct ProcessedVaaInfo has copy, drop, store {
-        /// The sequence number of the VAA.
         sequence: u64,
-        /// The timestamp from the VAA header.
-        timestamp: u32, // Corrected type based on VAA::timestamp return type
-        /// The source chain ID from the VAA header.
+        timestamp: u32,
         source_chain: u16,
-        // Consider adding source_address (vector<u8>) if needed for off-chain queries.
     }
 
     /// Represents the data that can be updated for a contract via a cross-chain message.

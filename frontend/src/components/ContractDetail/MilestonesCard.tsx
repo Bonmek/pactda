@@ -7,8 +7,8 @@ const itemVariants = {
 }
 
 interface Milestone {
-  name: string
-  status: 'Completed' | 'In Progress' | 'Pending'
+  description_hash: string
+  status: 'Completed' | 'In Progress' | 'Pending';
 }
 
 interface MilestonesCardProps {
@@ -21,7 +21,7 @@ const MilestonesCard: React.FC<MilestonesCardProps> = ({ milestones }) => (
       <ul className="list-disc list-inside">
         {milestones.map((milestone, index) => (
           <li key={index} className="text-sm">
-            {milestone.name} -{' '}
+            {milestone.description_hash} -{' '}
             <span
               className={`text-${milestone.status === 'Completed' ? 'green' : milestone.status === 'In Progress' ? 'yellow' : 'gray'}-400`}
             >

@@ -45,17 +45,14 @@ module pactda::pactda_tests {
     fun create_test_scenario(): Scenario {
         let mut scenario = test::begin(PARTY_A); // Start scenario as PARTY_A
 
-        // Mint SUI for Party A
         let tx_ctx_a = ctx(&mut scenario); // Changed from test::ctx
         let coin_a = coin::mint_for_testing<SUI>(INITIAL_BALANCE, tx_ctx_a);
         transfer::public_transfer(coin_a, PARTY_A);
 
-        // Mint SUI for Party B
         next_tx(&mut scenario, PARTY_B);
         let tx_ctx_b = ctx(&mut scenario); // Changed from test::ctx
         let coin_b = coin::mint_for_testing<SUI>(INITIAL_BALANCE, tx_ctx_b);
         transfer::public_transfer(coin_b, PARTY_B);
-
         // Mint SUI for Other User
         next_tx(&mut scenario, OTHER_USER);
         let tx_ctx_other = ctx(&mut scenario); // Changed from test::ctx
@@ -98,9 +95,9 @@ module pactda::pactda_tests {
         let mut i = 0;
         while (i < vector::length(&ids)) {
             let id = *vector::borrow(&ids, i);
-            let coin = test::take_from_address_by_id<Coin<SUI>>(scenario, user, id);
-            total_balance = total_balance + coin::value(&coin);
-            transfer::public_transfer(coin, user); // Return the coin
+            let coin_obj = test::take_from_address_by_id<Coin<SUI>>(scenario, user, id);
+            total_balance = total_balance + coin::value(&coin_obj);
+            test::return_to_address(user, coin_obj); // Corrected: Use test_scenario to return the coin
             i = i + 1;
         };
         total_balance
