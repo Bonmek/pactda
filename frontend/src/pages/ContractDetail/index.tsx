@@ -1,17 +1,19 @@
 import { motion } from 'framer-motion';
+import { getMilestoneStatusLabel, getMilestoneStatusStyle } from '@/lib/utils';
+import { MilestoneStatus } from '@/types/pactDa';
 import {
   buildSignContractAsPartyATx,
   buildSubmitContractTx,
   getContracts,
 } from '@/service/PactdaService';
 import { useEffect, useState } from 'react';
-import {
-  useCurrentAccount,
-  useSignAndExecuteTransaction,
-  useSuiClient,
-} from '@mysten/dapp-kit';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useManagedTransaction } from '@/hooks/useManagedTransaction';
 import { PactDaContract } from '@/@types/PactDaContract';
+import { useContractRole, ContractUserRole } from '@/hooks/useContractRole';
+import { ContractStatus } from '@/types/pactDa';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useRef } from 'react'; // Import useRef
 import { Milestone } from '@/features/wormhole/types'; // Assuming Milestone is correctly typed here
 import { Card, CardContent } from '@/components/ui/card';
 import PartiesCard from '@/components/ContractDetail/PartiesCard';
@@ -39,13 +41,20 @@ export default function ContractDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [contract, setContract] = useState<PactDaContract | null>(null);
-  const [events, setEvents] = useState<SuiEvent[]>([]);
+  const [events, setEvents] = useState<SuiEvent[]>([]); // Stores historical events for the timeline
+  const notifiedEventIds = useRef<Set<string>>(new Set()); // Tracks events for which notifications have been shown
   const [escrow, setEscrow] = useState<{ balance: any; status: any } | null>(null);
   const suiClient = useSuiClient();
   const suiAccount = useCurrentAccount();
-  const address = suiAccount?.address;
-  const { mutateAsync: signAndExecuteTransaction } =
-    useSignAndExecuteTransaction();
+  const address = suiAccount?.address; // Keep for now, might be useful for other non-role specific checks
+  const { 
+    executeTransaction, 
+    isLoading: isTransactionLoading, 
+    isCheckingCost, 
+    estimatedCost, 
+    checkTransactionCost 
+  } = useManagedTransaction();
+  const role = useContractRole(contract); // Call useContractRole
 
   const fetchContract = async () => {
     if (!id) return;
@@ -102,7 +111,7 @@ export default function ContractDetail() {
         });
         console.log("Transaction Block Responses:", txBlockResponses);
 
-        const allEvents: SuiEvent[] = [];
+        let allEvents: SuiEvent[] = [];
         if (txBlockResponses.data) {
           txBlockResponses.data.forEach(txBlock => {
             if (txBlock.events) {
@@ -111,14 +120,31 @@ export default function ContractDetail() {
           });
         }
 
-        allEvents.sort((a, b) => {
+        // Filter events to ensure they are directly related to the current contract.
+        // This assumes that relevant events emitted by the PactDA smart contract
+        // will have a `contract_id` field in their `parsedJson` that matches
+        // the `contract.objectId`. If this field name is different or not present
+        // in all relevant events, this filter will need adjustment.
+        // Other potential fields could be `pact_id`, or even `id` if it consistently refers to the contract object.
+        // If no such consistent field exists, the ChangedObject filter at the queryTransactionBlocks level
+        // is a broader but still useful filter.
+        const filteredEvents = allEvents.filter(event => {
+          return event.parsedJson && (
+            event.parsedJson.contract_id === contract.objectId ||
+            event.parsedJson.id === contract.objectId || // Some events might use 'id' for the contract
+            event.parsedJson.contract === contract.objectId // Another possible field name
+          );
+        });
+        
+        filteredEvents.sort((a, b) => {
           const tsA = typeof a.timestampMs === 'string' ? parseInt(a.timestampMs, 10) : a.timestampMs ?? 0;
           const tsB = typeof b.timestampMs === 'string' ? parseInt(b.timestampMs, 10) : b.timestampMs ?? 0;
           return tsB - tsA;
         });
 
-        setEvents(allEvents);
-
+        // Process events for notifications
+        filteredEvents.forEach(event => showNotificationForEvent(event));
+        setEvents(filteredEvents);
 
       } catch (error) {
         console.error('Error fetching contract activity via transactions:', error);
@@ -130,7 +156,162 @@ export default function ContractDetail() {
     if (contract && contract.objectId) { 
       fetchContractActivity();
     }
-  }, [contract, suiClient]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract?.objectId, suiClient]); // Removed contract from deps to avoid loop with setContract, fetchContract calls showNotification
+                                     // Adding fetchContract here will also create a loop.
+                                     // showNotificationForEvent and fetchContract are stable due to useCallback or being outside.
+                                     // Re-evaluate if contract data (like title) is stale in notifications.
+
+  const showNotificationForEvent = useCallback((event: SuiEvent) => {
+    if (!contract || !role || !address) return;
+
+    const eventId = event.id.txDigest + event.id.eventSeq;
+    if (notifiedEventIds.current.has(eventId)) {
+      return; // Already notified for this event
+    }
+
+    const eventTypeSuffix = event.type.split('::').pop() || '';
+    let notificationMessage = '';
+    let toastOptions: { action?: { label: string; onClick: () => void }; duration?: number, id?: string } = {
+        duration: 10000,
+        id: eventId, // Use eventId as toastId to prevent duplicates from sonner itself
+        action: {
+            label: 'View Contract',
+            onClick: () => navigate(`/contract/${contract.objectId}`),
+        },
+    };
+
+    // --- Define notification logic based on event type and user role ---
+    // Placeholder: these event type suffixes need to match your actual smart contract events.
+    // parsedJson fields are also assumptions.
+
+    if (eventTypeSuffix.includes('ContractSigned')) { // General signed event
+        const signingParty = event.parsedJson?.party_address || event.parsedJson?.signer; // Assuming 'party_address' or 'signer' in event
+        if (signingParty === contract.partyA && role === ContractUserRole.PARTY_B && !contract.partyBSigned) {
+            notificationMessage = `Contract '${contract.title}' has been signed by Party A. It's your turn to sign.`;
+        } else if (signingParty === contract.partyB && role === ContractUserRole.PARTY_A && !contract.partyASigned) {
+            notificationMessage = `Contract '${contract.title}' has been signed by Party B.`;
+        }
+    } else if (eventTypeSuffix.includes('ContractActive') || eventTypeSuffix.includes('ContractSubmitted')) {
+        if (role === ContractUserRole.PARTY_A || role === ContractUserRole.PARTY_B) {
+            notificationMessage = `Contract '${contract.title}' is now active.`;
+        }
+    } else if (eventTypeSuffix.includes('MilestoneSubmitted')) {
+        const submittedBy = event.parsedJson?.submitted_by; // Assuming field
+        const milestoneId = event.parsedJson?.milestone_id; // Assuming field
+        const milestone = contract.milestones.find(m => m.id === milestoneId);
+        const milestoneDesc = milestone?.description || `Milestone ID ${milestoneId}`;
+        if (submittedBy && ((role === ContractUserRole.PARTY_A && submittedBy !== contract.partyA) || (role === ContractUserRole.PARTY_B && submittedBy !== contract.partyB))) {
+            notificationMessage = `Milestone '${milestoneDesc}' for contract '${contract.title}' has been submitted for your approval.`;
+        }
+    } else if (eventTypeSuffix.includes('MilestoneApproved')) {
+        const milestoneId = event.parsedJson?.milestone_id;
+        const milestone = contract.milestones.find(m => m.id === milestoneId);
+        const milestoneDesc = milestone?.description || `Milestone ID ${milestoneId}`;
+        if (role === ContractUserRole.PARTY_A || role === ContractUserRole.PARTY_B) {
+            notificationMessage = `Milestone '${milestoneDesc}' for contract '${contract.title}' has been approved.`;
+        }
+    } else if (eventTypeSuffix.includes('PaymentReleased')) {
+        const milestoneId = event.parsedJson?.milestone_id;
+        const recipient = event.parsedJson?.recipient; // Assuming field
+        const milestone = contract.milestones.find(m => m.id === milestoneId);
+        const milestoneDesc = milestone?.description || `Milestone ID ${milestoneId}`;
+        if ((role === ContractUserRole.PARTY_A || role === ContractUserRole.PARTY_B) && recipient === address) {
+            notificationMessage = `Payment for milestone '${milestoneDesc}' in contract '${contract.title}' has been released to you.`;
+        } else if (role === ContractUserRole.PARTY_A || role === ContractUserRole.PARTY_B) {
+            notificationMessage = `Payment for milestone '${milestoneDesc}' in contract '${contract.title}' has been released.`;
+        }
+    } else if (eventTypeSuffix.includes('DisputeRaised')) {
+         if (role === ContractUserRole.PARTY_A || role === ContractUserRole.PARTY_B) {
+            notificationMessage = `A dispute has been raised for contract '${contract.title}'.`;
+        }
+    }
+    // Add more `else if` blocks for other event types...
+
+    if (notificationMessage) {
+      console.log("Showing toast for event:", eventTypeSuffix, "Message:", notificationMessage);
+      toast.info(notificationMessage, toastOptions);
+      notifiedEventIds.current.add(eventId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract, role, address, navigate]); // Dependencies for showNotificationForEvent
+
+
+  // Proof-of-Concept for suiClient.subscribeEvent
+  useEffect(() => {
+    if (!suiClient || !contract || !contract.objectId || !showNotificationForEvent) { // Added showNotificationForEvent
+      return;
+    }
+
+    const PACKAGE_ID = import.meta.env.VITE_PACKAGE_ID || "0xYOUR_PACKAGE_ID_FROM_ENV";
+    const MODULE_NAME = import.meta.env.VITE_MODULE_NAME || "pactda";
+
+    // Define a list of event types we are interested in for real-time updates.
+    // These should be the fully qualified type names from your Move contract.
+    // Example: `${PACKAGE_ID}::${MODULE_NAME}::ContractSignedEvent`
+    // For PoC, using a generic placeholder. Replace with actual event type suffixes.
+    const eventTypesToSubscribe = [
+        // More specific if available:
+        // `${PACKAGE_ID}::${MODULE_NAME}::ContractSignedByPartyA`,
+        // `${PACKAGE_ID}::${MODULE_NAME}::ContractSignedByPartyB`,
+        // `${PACKAGE_ID}::${MODULE_NAME}::ContractActive`,
+        // `${PACKAGE_ID}::${MODULE_NAME}::MilestoneSubmitted`,
+        // `${PACKAGE_ID}::${MODULE_NAME}::MilestoneApproved`,
+        // `${PACKAGE_ID}::${MODULE_NAME}::PaymentReleased`,
+        // `${PACKAGE_ID}::${MODULE_NAME}::DisputeRaised`,
+        // Generic placeholder for demonstration if specific types are unknown:
+        `${PACKAGE_ID}::${MODULE_NAME}::PactDaEvent`, // A generic parent event if one exists
+    ];
+    
+    console.log(`Attempting to subscribe to events from package: ${PACKAGE_ID}::${MODULE_NAME}`);
+
+    const unsubscribeFunctions: (() => void)[] = [];
+
+    eventTypesToSubscribe.forEach(eventType => {
+      (async () => {
+        try {
+          const unsubscribe = await suiClient.subscribeEvent({
+            filter: { MoveEventType: eventType }, // Or use Package / Module filter if more appropriate
+            onMessage: (event: SuiEvent) => {
+              console.log(`Received real-time event (${eventType.split('::').pop()}):`, event);
+              // Client-side filter to ensure the event is for the current contract
+              if (event.parsedJson &&
+                  (event.parsedJson.contract_id === contract.objectId ||
+                   event.parsedJson.id === contract.objectId ||
+                   event.parsedJson.contract === contract.objectId)) {
+                
+                showNotificationForEvent(event); // Use the centralized notification logic
+
+                // Potentially re-fetch data if the event implies a state change not covered by existing fetches
+                // Example: if a milestone is added by the other party.
+                // fetchContract(); 
+                // fetchContractActivity(); // To update the timeline immediately
+              }
+            },
+          });
+          console.log(`Subscribed to ${eventType}`);
+          unsubscribeFunctions.push(unsubscribe);
+        } catch (error) {
+          console.error(`Error subscribing to ${eventType}:`, error);
+          // Don't toast for subscription errors for generic PactDaEvent to avoid spam if it's too broad
+          if (!eventType.endsWith("::PactDaEvent")) {
+             toast.error(`Failed to subscribe to ${eventType.split("::").pop()} events.`);
+          }
+        }
+      })();
+    });
+
+    return () => {
+      unsubscribeFunctions.forEach(unsub => {
+        try {
+          unsub();
+          console.log("Unsubscribed from an event stream.");
+        } catch (error) {
+          console.error("Error unsubscribing from event stream:", error);
+        }
+      });
+    };
+  }, [suiClient, contract?.objectId, showNotificationForEvent, fetchContract]); // Added showNotificationForEvent and fetchContract
 
   const formatDate = (timestampMs?: string | number | null): string => {
     if (!timestampMs) return 'Date N/A';
@@ -159,71 +340,54 @@ export default function ContractDetail() {
     const isPartyA = address === partyA;
     const isPartyB = address === partyB;
 
-    try {
-      let txb;
-      if (isPartyA) {
-        txb = await buildSignContractAsPartyATx(objectId);
-      } else if (isPartyB) {
-        txb = await buildSignContractAsPartyATx(objectId); 
-      } else {
-        toast.error('You are not a party to this contract.');
-        return;
-      }
+    let txb;
+    if (isPartyA) {
+      txb = await buildSignContractAsPartyATx(objectId);
+    } else if (isPartyB) {
+      txb = await buildSignContractAsPartyATx(objectId); // Potentially buildSignContractAsPartyBTx
+    } else {
+      toast.error('You are not a party to this contract.');
+      return;
+    }
 
-      const result = await signAndExecuteTransaction({ transaction: txb });
-      if (!result.digest) {
-        toast.error('Transaction succeeded but no digest was returned');
-        return;
-      }
+    // Check cost first
+    const costDetails = await checkTransactionCost(txb);
+    if (!costDetails || !costDetails.hasSufficientBalance) {
+      // Toast for insufficient balance is handled by checkTransactionCost
+      // or executeTransaction if called directly without prior check
+      return; 
+    }
 
-      toast.promise(
-        suiClient.waitForTransaction({
-          digest: result.digest,
-          options: { showEffects: true },
-        }),
-        {
-          loading: 'Processing signature...', 
-          success: () => {
-            fetchContract(); 
-            return 'Contract signed successfully!';
-          },
-          error: 'Error processing signature.',
-        }
-      );
-    } catch (error) {
-      toast.error('Error signing contract');
-      console.error('Error signing contract:', error);
-    } 
+    await executeTransaction({
+      transaction: txb,
+      loadingMessage: 'Processing signature...',
+      successMessage: 'Contract signed successfully!',
+      onSuccess: () => fetchContract(),
+      onError: (error) => console.error('Error signing contract:', error),
+      skipCostCheck: true, // Cost was already checked
+    });
   };
 
   const handleSubmitContract = async () => {
     if (!contract || !address) return;
     const { objectId } = contract;
-    try {
-      const txb = await buildSubmitContractTx(objectId);
-      const result = await signAndExecuteTransaction({ transaction: txb });
-      if (!result.digest) {
-        toast.error('Transaction succeeded but no digest was returned');
-        return;
-      }
-      toast.promise(
-        suiClient.waitForTransaction({
-          digest: result.digest,
-          options: { showEffects: true },
-        }),
-        {
-          loading: 'Submitting contract...',
-          success: () => {
-            fetchContract();
-            return 'Contract submitted successfully!';
-          },
-          error: 'Error submitting contract.',
-        }
-      );
-    } catch (error) {
-      toast.error('Error submitting contract');
-      console.error('Error submitting contract:', error);
+
+    const txb = await buildSubmitContractTx(objectId);
+
+    // Check cost first
+    const costDetails = await checkTransactionCost(txb);
+    if (!costDetails || !costDetails.hasSufficientBalance) {
+      return;
     }
+
+    await executeTransaction({
+      transaction: txb,
+      loadingMessage: 'Submitting contract...',
+      successMessage: 'Contract submitted successfully!',
+      onSuccess: () => fetchContract(),
+      onError: (error) => console.error('Error submitting contract:', error),
+      skipCostCheck: true, // Cost was already checked
+    });
   };
 
   // Placeholder functions for milestone actions - implement as needed
@@ -330,8 +494,8 @@ export default function ContractDetail() {
                       {contract.objectId ?? '-'}
                     </span>
                   </div>
-                  {contract.status === 0 && // Assuming 0 is a 'Draft' or 'Updatable' status
-                    address === contract.partyA && (
+                  {/* Update Contract button visibility based on role and status */}
+                  {contract.status === ContractStatus.Draft && role === ContractUserRole.PARTY_A && (
                       <div className="w-full md:w-50">
                         <button
                           className="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl px-6 py-2 text-base font-semibold shadow-lg transition mb-2 mt-4 pulse-effect"
@@ -355,14 +519,12 @@ export default function ContractDetail() {
               <div className="block md:hidden mb-6">
                 <div className="rounded-2xl bg-gradient-to-br from-indigo-800/40 to-fuchsia-800/10 p-4 shadow-lg border border-indigo-700/20 flex flex-col gap-4">
                   <ActionsCard
+                    contract={contract} // Pass the full contract object
                     onSign={handleSignContract}
-                    status={contract.status}
-                    address={address!} // address is checked in handleSignContract, but good to be explicit if possible
-                    partyA={contract.partyA}
-                    partyB={contract.partyB} // Added missing prop
-                    partyASigned={contract.partyASigned} // Added missing prop
-                    partyBSigned={contract.partyBSigned} // Added missing prop
-                    onSubmit={handleSubmitContract} // Added missing prop
+                    onSubmit={handleSubmitContract}
+                    isLoading={isTransactionLoading || isCheckingCost}
+                    estimatedCost={estimatedCost?.gasEstimation}
+                    canExecute={estimatedCost ? estimatedCost.hasSufficientBalance : true}
                   />
                 </div>
               </div>
@@ -456,8 +618,10 @@ export default function ContractDetail() {
                               {milestone.description || '-'} {/* Changed from description_hash to description */}
                             </span>{' '}
                             -{' '}
-                            <span className="text-emerald-400">
-                              {milestone.status || '-'}
+                            <span
+                              className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getMilestoneStatusStyle(milestone.status as MilestoneStatus)}`}
+                            >
+                              {getMilestoneStatusLabel(milestone.status as MilestoneStatus)}
                             </span>
                           </li>
                         ))}
@@ -505,16 +669,29 @@ export default function ContractDetail() {
                 >
                   <div className="rounded-2xl bg-gradient-to-br from-indigo-800/40 to-fuchsia-800/10 p-4 shadow-lg border border-indigo-700/20 flex flex-col gap-4">
                     <ActionsCard
+                      contract={contract} // Pass the full contract object
                       onSign={handleSignContract}
-                      status={contract.status}
-                      address={address!} // address is checked in handleSignContract
-                      partyA={contract.partyA}
-                      partyB={contract.partyB}
-                      partyASigned={contract.partyASigned}
-                      partyBSigned={contract.partyBSigned}
                       onSubmit={handleSubmitContract}
+                      isLoading={isTransactionLoading || isCheckingCost}
+                      estimatedCost={estimatedCost?.gasEstimation}
+                      canExecute={estimatedCost ? estimatedCost.hasSufficientBalance : true}
                     />
                   </div>
+                  {/* Estimated Cost Display - Desktop */}
+                  {(isCheckingCost || estimatedCost) && 
+                    (role === ContractUserRole.PARTY_A || role === ContractUserRole.PARTY_B) && // Show cost only if user is a party
+                    (contract.status === ContractStatus.Draft || contract.status === ContractStatus.Pending) && // And contract is in a state where action is possible
+                    (
+                     <div className="mt-2 text-sm text-center text-indigo-300/80">
+                       {isCheckingCost && "Calculating cost..."}
+                       {estimatedCost && !isCheckingCost && (
+                         `Est. Cost: ${estimatedCost.gasEstimation} SUI. Your Balance: ${estimatedCost.userBalance} SUI.`
+                       )}
+                       {estimatedCost && !estimatedCost.hasSufficientBalance && !isCheckingCost && (
+                         <span className="text-red-400 block"> Insufficient balance for this transaction.</span>
+                       )}
+                     </div>
+                  )}
                   <div className="rounded-2xl bg-gradient-to-br from-gray-800/40 to-gray-700/10 p-4 shadow-lg border border-gray-700/20">
                     <span className="block text-gray-300/80 font-semibold mb-1">
                       Activity Timeline
