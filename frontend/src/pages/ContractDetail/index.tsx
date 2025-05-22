@@ -344,7 +344,7 @@ export default function ContractDetail() {
     if (isPartyA) {
       txb = await buildSignContractAsPartyATx(objectId);
     } else if (isPartyB) {
-      txb = await buildSignContractAsPartyATx(objectId); // Potentially buildSignContractAsPartyBTx
+      txb = await buildSignContractAsPartyBTx(objectId);
     } else {
       toast.error('You are not a party to this contract.');
       return;
