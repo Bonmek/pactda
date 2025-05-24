@@ -4,7 +4,7 @@
 
 // For Move coding conventions, see
 // https://docs.sui.io/concepts/sui-move-concepts/conventions
-module pactda::pactda;
+module pactda::pactda {
 
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
@@ -28,6 +28,7 @@ module pactda::pactda;
     const EUnauthorized: u64 = 4;
     const EInvalidMilestone: u64 = 5;
     // const ENotSigned: u64 = 6;    
+    const EInvalidInput: u64 = 7;
     
     // Status codes
     const CONTRACT_STATUS_DRAFT: u8 = 0;
@@ -46,6 +47,7 @@ module pactda::pactda;
     const MILESTONE_STATUS_SUBMITTED: u8 = 1;
     const MILESTONE_STATUS_APPROVED: u8 = 2;
     // const MILESTONE_STATUS_DISPUTED: u8 = 3;
+    const MILESTONE_STATUS_CANCELLED: u8 = 4;
 
     const PARTY_ROLE_B: u8 = 1;
 
@@ -233,7 +235,8 @@ module pactda::pactda;
         let final_contract_type: u8 = option::get_with_default(&contract_type, 0u8);
         let final_terms_reference: vector<u8> = option::get_with_default(&terms_reference, vector::empty<u8>()); // Default if None
 
-        let contract = PactDaContract {            id: object::new(ctx),
+        let contract = PactDaContract {            
+            id: object::new(ctx),
             title,
             contract_type: final_contract_type,
             status: CONTRACT_STATUS_DRAFT,
@@ -281,6 +284,13 @@ module pactda::pactda;
         let sender = tx_context::sender(ctx);
         assert!(sender == contract.party_a, EUnauthorized);
         assert!(contract.status == CONTRACT_STATUS_PENDING || contract.status == CONTRACT_STATUS_DRAFT, EInvalidStatus);
+
+        // Declare all local variables at the top
+        let mut existing_chain_id_b = 0u16;
+        let mut existing_party_address_b = vector::empty<u8>();
+        let mut i = 0u64;
+        let mut found_idx = option::none<u64>();
+
         if (option::is_some(&title)) {
             contract.title = option::extract(&mut title);
         };
@@ -306,12 +316,8 @@ module pactda::pactda;
             contract.party_b = new_party_b;
         };
 
-        let mut existing_chain_id_b: u16 = 0;
-        let mut existing_party_address_b = vector::empty<u8>();
-        
         if (option::is_some(&contract.cross_chain_parties)) {
             let parties_ref = option::borrow(&contract.cross_chain_parties);
-            let mut i = 0;
             let len = vector::length(parties_ref);
             while (i < len) {
                 let party_info = vector::borrow(parties_ref, i);
@@ -452,6 +458,143 @@ module pactda::pactda;
         create_receipt(object::id_address(contract), string::utf8(b"milestones_added"), ctx);
     }
 
+    public entry fun update_milestone(
+        contract: &mut PactDaContract,
+        milestone_id: u64,
+        new_description_hash: vector<u8>,
+        new_value: u64,
+        ctx: &mut TxContext,
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(option::is_some(&contract.milestones), EInvalidMilestone);
+        let milestones = option::borrow_mut(&mut contract.milestones);
+        assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
+        let milestone = vector::borrow_mut(milestones, milestone_id);
+        assert!(milestone.status == MILESTONE_STATUS_PENDING, EInvalidStatus);
+        milestone.description_hash = new_description_hash;
+        milestone.value = new_value;
+        create_receipt(object::id_address(contract), string::utf8(b"milestone_updated"), ctx);
+    }
+
+    public entry fun cancel_milestone(
+        contract: &mut PactDaContract,
+        milestone_id: u64,
+        ctx: &mut TxContext,
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(option::is_some(&contract.milestones), EInvalidMilestone);
+        let milestones = option::borrow_mut(&mut contract.milestones);
+        assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
+        let milestone = vector::borrow_mut(milestones, milestone_id);
+        assert!(milestone.status == MILESTONE_STATUS_PENDING, EInvalidStatus);
+        milestone.status = MILESTONE_STATUS_CANCELLED;
+        create_receipt(object::id_address(contract), string::utf8(b"milestone_cancelled"), ctx);
+    }
+
+    public entry fun remove_milestone(
+        contract: &mut PactDaContract,
+        milestone_id: u64,
+        ctx: &mut TxContext,
+    ) {
+        let sender = tx_context::sender(ctx);
+        assert!(option::is_some(&contract.milestones), EInvalidMilestone);
+        let milestones = option::borrow_mut(&mut contract.milestones);
+        assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
+        let milestone = vector::borrow_mut(milestones, milestone_id);
+        assert!(milestone.status == MILESTONE_STATUS_PENDING, EInvalidStatus);
+        let removed_milestone = vector::remove(milestones, milestone_id);
+
+        let remaining_count = vector::length(milestones);
+        let mut i = milestone_id;
+        while (i < remaining_count) {
+            let current_milestone = vector::borrow_mut(milestones, i);
+            current_milestone.id = i;
+            i = i + 1;
+        };
+
+        create_receipt(object::id_address(contract), string::utf8(b"milestone_removed"), ctx);
+    }
+
+    public entry fun batch_update_milestones(
+        contract: &mut PactDaContract,
+        milestone_ids: vector<u64>,
+        new_description_hashes: vector<vector<u8>>,
+        new_values: vector<u64>,
+        ctx: &mut TxContext,
+    ) {
+        let sender = tx_context::sender(ctx);
+        let len = vector::length(&milestone_ids);
+        assert!(len == vector::length(&new_description_hashes), EInvalidInput);
+        assert!(len == vector::length(&new_values), EInvalidInput);
+        assert!(option::is_some(&contract.milestones), EInvalidMilestone);
+        let milestones = option::borrow_mut(&mut contract.milestones);
+        let milestones_len = vector::length(milestones);
+        let mut i = 0;
+        while (i < len) {
+            let milestone_id = *vector::borrow(&milestone_ids, i);
+            assert!(milestone_id < milestones_len, EInvalidMilestone);
+            let milestone = vector::borrow_mut(milestones, milestone_id);
+            assert!(milestone.status == MILESTONE_STATUS_PENDING, EInvalidStatus);
+            milestone.description_hash = *vector::borrow(&new_description_hashes, i);
+            milestone.value = *vector::borrow(&new_values, i);
+            i = i + 1;
+        };
+        create_receipt(object::id_address(contract), string::utf8(b"milestones_batch_updated"), ctx);
+    }
+
+
+    public entry fun batch_upsert_milestones(
+        contract: &mut PactDaContract,
+        milestone_ids: vector<u64>,
+        description_hashes: vector<vector<u8>>,
+        values: vector<u64>,
+        ctx: &mut TxContext,
+    ) {
+        let len = vector::length(&milestone_ids);
+        assert!(len == vector::length(&description_hashes), EInvalidInput);
+        assert!(len == vector::length(&values), EInvalidInput);
+        assert!(len > 0, EInvalidInput);
+        // Check for duplicate IDs in milestone_ids
+        let mut j = 0;
+        while (j < len) {
+            let id_j = *vector::borrow(&milestone_ids, j);
+            let mut k = j + 1;
+            while (k < len) {
+                let id_k = *vector::borrow(&milestone_ids, k);
+                assert!(id_j != id_k, EInvalidInput); // Duplicate found
+                k = k + 1;
+            };
+            j = j + 1;
+        };
+        if (option::is_none(&contract.milestones)) {
+            contract.milestones = option::some(vector::empty<Milestone>());
+        };
+        let mut i = 0;
+        while (i < len) {
+            let milestone_id = *vector::borrow(&milestone_ids, i);
+            let milestones_len = vector::length(option::borrow_mut(&mut contract.milestones));
+            if (milestone_id < milestones_len) {
+                let milestone = vector::borrow_mut(option::borrow_mut(&mut contract.milestones), milestone_id);
+                if (milestone.status == MILESTONE_STATUS_PENDING) {
+                    milestone.description_hash = *vector::borrow(&description_hashes, i);
+                    milestone.value = *vector::borrow(&values, i);
+                }
+            } else {
+                let milestone = Milestone {
+                    id: milestone_id,
+                    description_hash: *vector::borrow(&description_hashes, i),
+                    value: *vector::borrow(&values, i),
+                    status: MILESTONE_STATUS_PENDING,
+                    proof_reference: option::none(),
+                };
+                vector::push_back(option::borrow_mut(&mut contract.milestones), milestone);
+            };
+            i = i + 1;
+        };
+        create_receipt(object::id_address(contract), string::utf8(b"milestones_batch_upserted"), ctx);
+    }
+
+
     public entry fun sign_contract_party_a(
         contract: &mut PactDaContract,
         ctx: &mut TxContext,
@@ -581,8 +724,11 @@ module pactda::pactda;
         } else {
             contract.status = CONTRACT_STATUS_COMPLETED;
         };
+        
         create_receipt(object::id_address(contract), string::utf8(b"payment_released"), ctx);
-    }    public entry fun refund_payment(
+    }    
+    
+    public entry fun refund_payment(
         contract: &mut PactDaContract,
         escrow: &mut Escrow,
         ctx: &mut TxContext,
@@ -1105,3 +1251,33 @@ module pactda::pactda;
     public fun get_error_invalid_milestone(): u64 {
         EInvalidMilestone
     }
+
+    // === ContractReceipt NFT for discoverability ===
+    public struct ContractReceipt has key, store {
+        id: UID,
+        contract_id: ID,
+        contract_title: String,
+        party: address,
+        role: u8, // 0 = PartyA, 1 = PartyB
+    }
+
+    public fun mint_contract_receipt(contract: &PactDaContract, party: address, role: u8, ctx: &mut TxContext): ContractReceipt {
+        ContractReceipt {
+            id: object::new(ctx),
+            contract_id: object::id(contract),
+            contract_title: contract.title,
+            party,
+            role,
+        }
+    }
+
+    public entry fun issue_contract_receipts(contract: &PactDaContract, ctx: &mut TxContext) {
+        let party_a = contract.party_a;
+        let party_b = contract.party_b;
+        let receipt_a = mint_contract_receipt(contract, party_a, 0, ctx);
+        let receipt_b = mint_contract_receipt(contract, party_b, 1, ctx);
+        transfer::transfer(receipt_a, party_a);
+        transfer::transfer(receipt_b, party_b);
+    }
+
+}

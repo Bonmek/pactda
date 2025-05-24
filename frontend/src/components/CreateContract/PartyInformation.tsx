@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
 import suiLogo from './chain-logos/sui.svg'
@@ -19,23 +19,36 @@ const blockchains = [
 interface PartyInformationProps {
   partyAAddress?: string
   partyBAddress?: string
-  onPartyBAddressChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  partyBBlockchain?: string
+  onPartyBAddressChange: (address: string, blockchain: string) => void
 }
 
 const PartyInformation = ({
   partyAAddress,
   partyBAddress,
+  partyBBlockchain: propPartyBBlockchain,
   onPartyBAddressChange,
 }: PartyInformationProps) => {
-  const [partyBBlockchain, setPartyBBlockchain] = useState<string>('Sui')
+  const [partyBBlockchain, setPartyBBlockchain] = useState<string>(propPartyBBlockchain ?? 'Sui')
+
+  useEffect(() => {
+    if (propPartyBBlockchain && propPartyBBlockchain !== partyBBlockchain) {
+      setPartyBBlockchain(propPartyBBlockchain)
+    }
+  }, [propPartyBBlockchain])
 
   const handleBlockchainChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setPartyBBlockchain(e.target.value)
+    onPartyBAddressChange(partyBAddress ?? '', e.target.value)
   }
 
-  // Handle direct click on blockchain option
   const handleBlockchainClick = (blockchain: string) => {
     setPartyBBlockchain(blockchain)
+    onPartyBAddressChange(partyBAddress ?? '', blockchain)
+  }
+
+  const handlePartyBAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onPartyBAddressChange(e.target.value, partyBBlockchain)
   }
 
   return (
@@ -93,8 +106,8 @@ const PartyInformation = ({
           <Input
             placeholder="Enter Party B's address"
             className="w-full bg-slate-800/40 border-indigo-500/30 text-white py-2 pl-10 pr-3 rounded-lg focus:border-indigo-400 focus:ring-2 focus:ring-indigo-600/30"
-            value={partyBAddress}
-            onChange={onPartyBAddressChange}
+            value={partyBAddress ?? ''}
+            onChange={handlePartyBAddressChange}
           />
           <div className="absolute left-3 top-4 transform -translate-y-1/2">
             {blockchains.find((b) => b.name === partyBBlockchain)?.icon ? (
@@ -187,24 +200,6 @@ const PartyInformation = ({
             </motion.div>
           ))}
         </div>
-
-        {/* Fallback select for accessibility */}
-        {/* <select
-          className="w-full px-4 py-3 rounded-lg bg-slate-800/60 border border-indigo-500/30 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
-          value={partyBBlockchain}
-          onChange={handleBlockchainChange}
-        >
-          {blockchains.map((blockchain) => (
-            <option key={blockchain.name} value={blockchain.name}>
-              <img
-                src={blockchain.icon}
-                alt={blockchain.name}
-                className="w-5 h-5 mr-2"
-              />{' '}
-              {blockchain.name}
-            </option>
-          ))}
-        </select> */}
       </div>
     </div>
   )

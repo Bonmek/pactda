@@ -12,6 +12,7 @@ module pactda::pactda_milestone {
     
     use pactda::pactda;
     use pactda::pactda_utils;
+    use pactda::pactda::get_escrow_status_funded;
 
     const EInvalidStatus: u64 = 2;
     const EUnauthorized: u64 = 4;
@@ -65,11 +66,8 @@ module pactda::pactda_milestone {
         ctx: &mut TxContext
     ) {
         let sender = tx_context::sender(ctx);
-        
         assert!(pactda::get_escrow_id(contract) == option::some(object::id(escrow)), EInvalidStatus);
-        
         assert!(sender == pactda::get_escrow_payer(escrow), EUnauthorized);
-        
         let payment_record = MilestonePaymentRecord {
             id: object::new(ctx),
             contract_id: object::id(contract),
@@ -79,17 +77,16 @@ module pactda::pactda_milestone {
             escrow_id: object::id(escrow),
             last_payment_timestamp: tx_context::epoch(ctx),
         };
-        
         let record_id = object::id(&payment_record);
-        
         event::emit(MilestonePaymentRecordCreatedEvent {
             record_id,
             contract_id: object::id(contract),
             escrow_id: object::id(escrow)
         });
-        
-        transfer::share_object(payment_record);
-    }    public entry fun release_milestone_payment(
+        transfer::transfer(payment_record, sender);
+    }    
+    
+    public entry fun release_milestone_payment(
         contract: &mut pactda::PactDaContract,
         escrow: &mut pactda::Escrow,
         milestone_id: u64,
@@ -99,7 +96,7 @@ module pactda::pactda_milestone {
         
         assert!(pactda::get_escrow_id(contract) == option::some(object::id(escrow)), EInvalidStatus);
         assert!(sender == pactda::get_escrow_payer(escrow), EUnauthorized);
-        assert!(pactda::get_escrow_status(escrow) == ESCROW_STATUS_FUNDED, EInvalidStatus);
+        assert!(pactda::get_escrow_status(escrow) == pactda::get_escrow_status_funded(), EInvalidStatus);
         
         assert!(pactda::get_status(contract) == pactda::get_contract_status_active(), EInvalidStatus);
         
@@ -145,8 +142,8 @@ module pactda::pactda_milestone {
         
         assert!(pactda::get_escrow_id(contract) == option::some(object::id(escrow)), EInvalidStatus);
         assert!(sender == pactda::get_escrow_payer(escrow), EUnauthorized);
-        assert!(pactda::get_escrow_status(escrow) == ESCROW_STATUS_FUNDED, EInvalidStatus);
-        assert!(pactda::get_status(contract) == CONTRACT_STATUS_ACTIVE, EInvalidStatus);
+        assert!(pactda::get_escrow_status(escrow) == pactda::get_escrow_status_funded(), EInvalidStatus);
+        assert!(pactda::get_status(contract) == pactda::get_contract_status_active(), EInvalidStatus);
         
         assert!(option::is_some(pactda::get_milestones(contract)), EInvalidMilestone);
         
@@ -166,7 +163,7 @@ module pactda::pactda_milestone {
                 };
                 
                 let milestone = vector::borrow(milestones, milestone_id);
-                assert!(pactda::get_milestone_status(milestone) == MILESTONE_STATUS_APPROVED, EInvalidStatus);
+                assert!(pactda::get_milestone_status(milestone) == pactda::get_milestone_status_approved(), EInvalidStatus);
                 
                 let milestone_value = pactda::get_milestone_value(milestone);
                 total_payment = total_payment + milestone_value;
@@ -218,8 +215,8 @@ module pactda::pactda_milestone {
         
         assert!(pactda::get_escrow_id(contract) == option::some(object::id(escrow)), EInvalidStatus);
         assert!(sender == pactda::get_escrow_payer(escrow), EUnauthorized);
-        assert!(pactda::get_escrow_status(escrow) == ESCROW_STATUS_FUNDED, EInvalidStatus);
-        assert!(pactda::get_status(contract) == CONTRACT_STATUS_ACTIVE, EInvalidStatus);
+        assert!(pactda::get_escrow_status(escrow) == pactda::get_escrow_status_funded() , EInvalidStatus);
+        assert!(pactda::get_status(contract) == pactda::get_contract_status_active() , EInvalidStatus);
         
         assert!(option::is_some(pactda::get_milestones(contract)), EInvalidMilestone);
         
@@ -245,7 +242,7 @@ module pactda::pactda_milestone {
                 assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
                 
                 let milestone = vector::borrow(milestones, milestone_id);
-                assert!(pactda::get_milestone_status(milestone) == MILESTONE_STATUS_APPROVED, EInvalidStatus);
+                assert!(pactda::get_milestone_status(milestone) == pactda::get_milestone_status_approved(), EInvalidStatus);
                 
                 let milestone_value = pactda::get_milestone_value(milestone);
                 total_payment = total_payment + milestone_value;
@@ -260,25 +257,20 @@ module pactda::pactda_milestone {
         pactda::release_payment(contract, escrow, ctx);
         
         let timestamp = tx_context::epoch(ctx);
-        payment_record.last_payment_timestamp = timestamp;
         
         {
             let milestones = option::borrow(pactda::get_milestones(contract));
-            
             let mut i = 0;
             let len = vector::length(&milestone_ids);
             
             while (i < len) {
                 let milestone_id = *vector::borrow(&milestone_ids, i);
                 let milestone = vector::borrow(milestones, milestone_id);
-                let milestone_value = pactda::get_milestone_value(milestone);
-                
-                vector::push_back(&mut payment_record.paid_milestones, milestone_id);
                 
                 event::emit(MilestonePaymentReleasedEvent {
                     contract_id: object::id(contract),
                     milestone_id,
-                    amount: milestone_value,
+                    amount: pactda::get_milestone_value(milestone),
                     payer: pactda::get_escrow_payer(escrow),
                     payee: pactda::get_escrow_payee(escrow),
                     timestamp
@@ -290,7 +282,8 @@ module pactda::pactda_milestone {
         
         payment_record.total_paid = payment_record.total_paid + total_payment;
     }
-      public entry fun release_milestone_payment_with_tracking(
+
+    public entry fun release_milestone_payment_with_tracking(
         contract: &mut pactda::PactDaContract,
         escrow: &mut pactda::Escrow,
         milestone_id: u64,
@@ -304,8 +297,8 @@ module pactda::pactda_milestone {
         
         assert!(pactda::get_escrow_id(contract) == option::some(object::id(escrow)), EInvalidStatus);
         assert!(sender == pactda::get_escrow_payer(escrow), EUnauthorized);
-        assert!(pactda::get_escrow_status(escrow) == ESCROW_STATUS_FUNDED, EInvalidStatus);
-        assert!(pactda::get_status(contract) == CONTRACT_STATUS_ACTIVE, EInvalidStatus);
+        assert!(pactda::get_escrow_status(escrow) == pactda::get_escrow_status_funded(), EInvalidStatus);
+        assert!(pactda::get_status(contract) == pactda::get_contract_status_active(), EInvalidStatus);
         
         assert!(!vector::contains(&payment_record.paid_milestones, &milestone_id), EMilestonePaid);
         
@@ -322,7 +315,7 @@ module pactda::pactda_milestone {
             assert!(milestone_id < vector::length(milestones), EInvalidMilestone);
             
             let milestone = vector::borrow(milestones, milestone_id);
-            assert!(pactda::get_milestone_status(milestone) == MILESTONE_STATUS_APPROVED, EInvalidStatus);
+            assert!(pactda::get_milestone_status(milestone) == pactda::get_milestone_status_approved(), EInvalidStatus);
             
             milestone_value = pactda::get_milestone_value(milestone);
         };
@@ -350,7 +343,7 @@ module pactda::pactda_milestone {
     
     // === Dispute Handling ===
     public fun is_milestone_disputed(contract: &pactda::PactDaContract, milestone_id: u64): bool {
-        pactda::get_status(contract) == CONTRACT_STATUS_DISPUTED
+        pactda::get_status(contract) == pactda::get_contract_status_disputed()
     }
     
     public entry fun mark_milestone_disputed(
@@ -402,7 +395,7 @@ module pactda::pactda_milestone {
         
         assert!(pactda::get_escrow_id(contract) == option::some(object::id(escrow)), EInvalidStatus);
         
-        assert!(pactda::get_status(contract) == CONTRACT_STATUS_ACTIVE, EInvalidStatus);
+        assert!(pactda::get_status(contract) == pactda::get_contract_status_active(), EInvalidStatus);
         
         let escrow_balance = pactda::get_escrow_balance(escrow);
         assert!(escrow_balance >= refund_amount, EInsufficientFunds);

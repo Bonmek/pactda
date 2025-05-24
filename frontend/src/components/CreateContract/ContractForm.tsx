@@ -9,23 +9,49 @@ import AgreementType from './AgreementType'
 import ContractTerms from './ContractTerms'
 import EscrowPayment from './EscrowPayment'
 import MilestoneList from './MilestoneList'
-import AdditionalInformation from './AdditionalInformation'
-import { useNavigate } from 'react-router-dom'
+import { Milestone, OnChainMilestone } from '@/types/milestone'
 import {
   useCurrentAccount,
   useSignAndExecuteTransaction,
   useSuiClient,
 } from '@mysten/dapp-kit'
-import { buildCreateContractTx } from '@/service/PactdaService'
+import { useNavigate } from 'react-router-dom'
+import {
+  buildCreateContractTx,
+  buildCreateContractCrossChainTx,
+  buildUpdateContractTx,
+} from '@/service/PactdaService'
 import suiLogo from './chain-logos/sui.svg'
-import solanaLogo from './chain-logos/solana.svg'
-import ConfirmationModal from '@/components/ui/ConfirmationModal'
+import AdditionalInformation from './AdditionalInformation'
+import ContractActionConfirmationModal from '../ui/ContractActionConfirmationModal'
 
-type Milestone = {
-  id: string
-  title: string
-  description: string
-  value: string
+function onChainToMilestoneArray(onChain: OnChainMilestone[]): Milestone[] {
+  return onChain.map((m, i) => ({
+    id: m.fields.id,
+    description_hash: Array.isArray(m.fields.description_hash)
+      ? new TextDecoder().decode(Uint8Array.from(m.fields.description_hash))
+      : String(m.fields.description_hash),
+    value: Number(m.fields.value),
+    isOnChain: true,
+    onChainId: m.fields.id,
+  }))
+}
+
+function milestonesToBatchArrays(milestones: Milestone[]) {
+  const milestone_ids = milestones.map((_, i) => i)
+  const description_hashes = milestones.map((m) =>
+    new TextEncoder().encode(m.description_hash),
+  )
+  const values = milestones.map((m) => {
+    const val = typeof m.value === 'string' ? parseFloat(m.value) : m.value
+    if (m.isOnChain) {
+      return m.value
+    }
+    if (isNaN(val) || val <= 0)
+      throw new Error('Milestone value must be a positive number')
+    return Math.round(val * 1e9)
+  })
+  return { milestone_ids, description_hashes, values }
 }
 
 const containerVariants = {
@@ -65,6 +91,14 @@ const formSteps = [
   { id: 'additional', label: 'Additional Info', icon: '📎', required: false },
 ]
 
+interface CrossChainParties {
+  fields: {
+    party_address: string
+    chain_id: number
+    role: string
+  }
+}
+
 interface ContractFormProps {
   initialValues?: {
     title?: string
@@ -74,7 +108,9 @@ interface ContractFormProps {
     metadata?: string
     contractStartDate?: Date
     contractDeadlineDate?: Date
-    milestones?: Milestone[]
+    milestones?: Milestone[] | OnChainMilestone[]
+    contractId?: string
+    cross_chain_parties?: CrossChainParties[]
   }
   onSubmit?: (values: {
     title: string
@@ -84,10 +120,33 @@ interface ContractFormProps {
     metadata?: string
     contractStartDate?: Date
     contractDeadlineDate?: Date
-    milestones?: Milestone[]
+    milestones?: Milestone[] | OnChainMilestone[]
+    contractId?: string
+    cross_chain_parties?: CrossChainParties[]
   }) => Promise<void> | void
   disableTitle?: boolean
   mode?: 'create' | 'update'
+}
+
+function isOnChainMilestoneArray(arr: any[]): arr is OnChainMilestone[] {
+  return (
+    arr.length > 0 &&
+    arr.every((m) => m && typeof m === 'object' && 'fields' in m)
+  )
+}
+
+function milestonesEqual(a: Milestone[], b: Milestone[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].onChainId !== b[i].onChainId ||
+      a[i].description_hash !== b[i].description_hash ||
+      Number(a[i].value) !== Number(b[i].value)
+    ) {
+      return false
+    }
+  }
+  return true
 }
 
 const ContractForm: React.FC<ContractFormProps> = ({
@@ -123,13 +182,19 @@ const ContractForm: React.FC<ContractFormProps> = ({
     initialValues.contractDeadlineDate,
   )
   const [milestones, setMilestones] = useState<Milestone[]>(
-    initialValues.milestones || [],
+    initialValues.milestones
+      ? isOnChainMilestoneArray(initialValues.milestones)
+        ? onChainToMilestoneArray(
+            initialValues.milestones as OnChainMilestone[],
+          )
+        : (initialValues.milestones as Milestone[])
+      : [],
   )
   const [contractFile, setContractFile] = useState<File | null>(null)
   const [contractFileUrl, setContractFileUrl] = useState<string | undefined>()
   const [uploading, setUploading] = useState(false)
   const titleRef = React.useRef<HTMLInputElement>(null)
-  
+
   const [drafts, setDrafts] = useState<any[]>([])
   const [showDraftMenu, setShowDraftMenu] = useState(false)
   const draftMenuRef = React.useRef<HTMLDivElement>(null)
@@ -146,7 +211,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
       completed.push('parties')
     if (termsReference || (startDate && endDate)) completed.push('terms')
     completed.push('payment')
-    if (milestones.length > 0 && milestones.some((m) => m.title))
+    if (milestones.length > 0 && milestones.some((m) => m.description_hash))
       completed.push('milestones')
     if (metadata) completed.push('additional')
 
@@ -156,18 +221,19 @@ const ContractForm: React.FC<ContractFormProps> = ({
   }
 
   useEffect(() => {
-    const shouldUpdate = title !== undefined || 
-                        contractType !== undefined || 
-                        suiPartyBAddress !== undefined || 
-                        termsReference !== undefined || 
-                        startDate !== undefined || 
-                        endDate !== undefined || 
-                        metadata !== undefined || 
-                        milestones.length > 0 || 
-                        address !== undefined;
-    
+    const shouldUpdate =
+      title !== undefined ||
+      contractType !== undefined ||
+      suiPartyBAddress !== undefined ||
+      termsReference !== undefined ||
+      startDate !== undefined ||
+      endDate !== undefined ||
+      metadata !== undefined ||
+      milestones.length > 0 ||
+      address !== undefined
+
     if (shouldUpdate) {
-      updateCompletedSteps();
+      updateCompletedSteps()
     }
   }, [
     title,
@@ -194,10 +260,13 @@ const ContractForm: React.FC<ContractFormProps> = ({
       }
     }
   }, [mode, initialValues])
-  
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (draftMenuRef.current && !draftMenuRef.current.contains(event.target as Node)) {
+      if (
+        draftMenuRef.current &&
+        !draftMenuRef.current.contains(event.target as Node)
+      ) {
         setShowDraftMenu(false)
       }
     }
@@ -211,27 +280,30 @@ const ContractForm: React.FC<ContractFormProps> = ({
     setMilestones([
       ...milestones,
       {
-        id: Date.now().toString(),
-        title: '',
-        description: '',
-        value: '',
+        id: milestones.length,
+        description_hash: '',
+        value: 0,
       },
     ])
   }
 
-  const removeMilestone = (id: string) => {
-    setMilestones(milestones.filter((milestone) => milestone.id !== id))
+  const removeMilestone = (id: number) => {
+    const filtered = milestones.filter((milestone) => milestone.id !== id)
+    setMilestones(filtered.map((m, i) => ({ ...m, id: i })))
   }
 
-  const updateMilestone = (
-    id: string,
-    field: keyof Milestone,
-    value: string,
-  ) => {
+  const updateMilestone = (id: number, field: string, value: string) => {
     setMilestones(
-      milestones.map((milestone) =>
-        milestone.id === id ? { ...milestone, [field]: value } : milestone,
-      ),
+      milestones.map((milestone) => {
+        if (milestone.id === id) {
+          if (field === 'value') {
+            const numValue = value === '' ? 0 : Number(value)
+            return { ...milestone, value: isNaN(numValue) ? 0 : numValue }
+          }
+          return { ...milestone, [field]: value }
+        }
+        return milestone
+      }),
     )
   }
 
@@ -244,16 +316,14 @@ const ContractForm: React.FC<ContractFormProps> = ({
     updateCompletedSteps()
   }
 
-  const handlePartyBAddressChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    if (e.target.value.length == 0) {
-      setSuiPartyBAddress(undefined)
-    } else {
-      setSuiPartyBAddress(e.target.value)
-    }
+  const [partyBBlockchain, setPartyBBlockchain] = useState<string>('Sui')
+
+  const handlePartyBAddressChange = (address: string, blockchain: string) => {
+    setSuiPartyBAddress(address)
+    setPartyBBlockchain(blockchain)
     updateCompletedSteps()
   }
+
   const handleContractTypeChange = (value?: number) => {
     setContractType(value)
     updateCompletedSteps()
@@ -296,34 +366,20 @@ const ContractForm: React.FC<ContractFormProps> = ({
     updateCompletedSteps()
   }
 
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [estimatedGas, setEstimatedGas] = useState<string | null>(null);
-  const [gasLoading, setGasLoading] = useState(false);
-  const [gasError, setGasError] = useState<string | null>(null);
-  const [pendingTxb, setPendingTxb] = useState<any>(null);
-  const [confirming, setConfirming] = useState(false);
-
-  const [currentBalance, setCurrentBalance] = useState<string | null>(null);
-  const [balanceLoading, setBalanceLoading] = useState(false);
-
-  useEffect(() => {
-    const fetchBalance = async () => {
-      if (address) {
-        setBalanceLoading(true);
-        try {
-          const coinBalance = await suiClient.getBalance({ owner: address });
-          setCurrentBalance((Number(coinBalance.totalBalance) / 1e9).toFixed(6));
-        } catch (e) {
-          setCurrentBalance(null);
-        } finally {
-          setBalanceLoading(false);
-        }
-      } else {
-        setCurrentBalance(null);
-      }
-    };
-    fetchBalance();
-  }, [address, suiClient]);
+  // Modal state for contract creation
+  const [actionModal, setActionModal] = useState<{
+    open: boolean
+    txb: any | null
+    title: string
+    onConfirmed: (result: any) => void
+    content?: React.ReactNode
+  }>({
+    open: false,
+    txb: null,
+    title: '',
+    onConfirmed: () => {},
+    content: null,
+  })
 
   const handleSubmit = async () => {
     try {
@@ -331,19 +387,50 @@ const ContractForm: React.FC<ContractFormProps> = ({
         toast.error('Please connect your Sui wallet.')
         return
       }
-      if (!title) {
-        toast.error('Title is required.')
-        titleRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
+      if (!title || title.trim().length < 3) {
+        toast.error('Title is required and must be at least 3 characters.')
+        return
+      }
+      // Check for duplicate milestone IDs
+      const milestoneIds = milestones.map((m) => m.id)
+      const uniqueMilestoneIds = new Set(milestoneIds)
+      if (milestoneIds.length !== uniqueMilestoneIds.size) {
+        toast.error(
+          'Duplicate milestone IDs detected. Please ensure each milestone has a unique ID.',
+        )
+        return
+      }
+      let milestoneSource: Milestone[] | OnChainMilestone[] = milestones
+      if (
+        mode === 'update' &&
+        initialValues.milestones &&
+        isOnChainMilestoneArray(initialValues.milestones)
+      ) {
+        milestoneSource = initialValues.milestones
+      }
+      if (
+        !milestoneSource ||
+        milestoneSource.length === 0 ||
+        !milestoneSource.some((m: any) => {
+          if ('description_hash' in m) {
+            return m.description_hash && m.description_hash.length > 0
+          } else if ('fields' in m) {
+            const desc = (m as OnChainMilestone).fields.description_hash
+            return typeof desc === 'string'
+              ? desc.length > 0
+              : Array.isArray(desc) && desc.length > 0
+          }
+          return false
         })
-        titleRef.current?.focus()
+      ) {
+        toast.error('At least one milestone with a description is required.')
         return
       }
 
       if (
         suiPartyBAddress &&
         suiPartyBAddress.trim() !== '' &&
+        partyBBlockchain === 'Sui' &&
         !/^0x[a-fA-F0-9]{64}$/.test(suiPartyBAddress)
       ) {
         toast.error(
@@ -389,7 +476,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
           )
           return
         }
-      } 
+      }
       const startDateTimestamp = startDate
         ? Math.floor(startDate.getTime() / 1000)
         : undefined
@@ -427,45 +514,475 @@ const ContractForm: React.FC<ContractFormProps> = ({
       const cleanMetadata =
         metadata && metadata.trim() !== '' ? metadata : undefined
 
+      // --- Cross-chain logic ---
+      const isCrossChain = partyBBlockchain !== 'Sui'
       let txb
-
-      txb = buildCreateContractTx(
-        title!,
-        cleanPartyBAddress,
-        contractType,
-        cleanTermsReference,
-        startDateTimestamp,
-        endDateTimestamp,
-        cleanMetadata,
-      )
-      // Set sender for dry run context
-      if (address) txb.setSenderIfNotSet(address);
-      setGasLoading(true)
-      setGasError(null)
-      setEstimatedGas(null)
-      setPendingTxb(txb)
-      setShowConfirmModal(true)
-
-      // Dry run for gas estimation
-      try {
-        const dryRunBytes = await txb.build({ client: suiClient });
-        const dryRunResult = await suiClient.dryRunTransactionBlock({ transactionBlock: dryRunBytes });
-        if (dryRunResult.effects && dryRunResult.effects.gasUsed) {
-          const { computationCost, storageCost, storageRebate } = dryRunResult.effects.gasUsed;
-          const totalMist = BigInt(computationCost) + BigInt(storageCost) - BigInt(storageRebate);
-          const formatted = `${(Number(totalMist) / 1e9).toFixed(6)} SUI`;
-          setEstimatedGas(formatted);
+      if (mode === 'create') {
+        if (isCrossChain) {
+          const chainId = CHAIN_IDS[partyBBlockchain] || 0
+          if (!suiPartyBAddress || suiPartyBAddress.trim() === '') {
+            toast.error(`Party B's address is required for ${partyBBlockchain}`)
+            return
+          }
+          let addressBytes: number[] = []
+          if (partyBBlockchain === 'Solana') {
+            if (!/^([1-9A-HJ-NP-Za-km-z]{32,44})$/.test(suiPartyBAddress)) {
+              toast.error(
+                "Party B's Solana address must be valid base58 (32-44 chars)",
+              )
+              return
+            }
+            try {
+              addressBytes = Array.from(
+                new TextEncoder().encode(suiPartyBAddress),
+              )
+            } catch (e) {
+              toast.error(
+                'Failed to decode Solana address: ' +
+                  (e instanceof Error ? e.message : String(e)),
+              )
+              return
+            }
+          } else if (
+            ['Ethereum', 'Polygon', 'Avalanche'].includes(partyBBlockchain)
+          ) {
+            if (!/^0x[a-fA-F0-9]{40}$/.test(suiPartyBAddress)) {
+              toast.error(
+                `Party B's ${partyBBlockchain} address must be a 0x-prefixed 40 hex chars`,
+              )
+              return
+            }
+            addressBytes = Array.from(
+              Buffer.from(suiPartyBAddress.slice(2), 'hex'),
+            )
+          }
+          if (!addressBytes.length) {
+            toast.error(
+              'Failed to parse Party B address for cross-chain contract',
+            )
+            return
+          }
+          txb = buildCreateContractCrossChainTx(
+            chainId,
+            addressBytes,
+            title!,
+            contractType,
+            cleanTermsReference,
+            startDateTimestamp,
+            endDateTimestamp,
+            cleanMetadata,
+          )
         } else {
-          setEstimatedGas(null);
-          setGasError('Could not estimate gas.');
+          // Sui-only contract
+          txb = buildCreateContractTx(
+            title!,
+            cleanPartyBAddress,
+            contractType,
+            cleanTermsReference,
+            startDateTimestamp,
+            endDateTimestamp,
+            cleanMetadata,
+          )
         }
-      } catch (err) {
-        setGasError('Failed to estimate gas.');
-        setEstimatedGas(null);
-      } finally {
-        setGasLoading(false)
-        setLoading(false)
+        if (address) txb.setSenderIfNotSet(address)
+        setActionModal({
+          open: true,
+          txb,
+          title: 'Confirm Contract Creation',
+          content: (
+            <div>
+              <p className="mb-2">
+                You are about to create a new contract. Please review the
+                estimated transaction fee below before confirming.
+              </p>
+              {title && (
+                <p>
+                  <span className="font-semibold">Title:</span> {title}
+                </p>
+              )}
+              {milestones && milestones.length > 0 && (
+                <div className="mt-2">
+                  <span className="font-semibold">Milestones:</span>
+                  <ul className="list-disc ml-6">
+                    {milestones.map((m, i) => (
+                      <li key={i}>{m.description_hash}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ),
+          onConfirmed: async (result: any) => {
+            try {
+              if (!result.digest) {
+                toast.error('Transaction succeeded but no digest was returned')
+                setActionModal((m) => ({ ...m, open: false }))
+                return
+              }
+              const txn = await suiClient.waitForTransaction({
+                digest: result.digest,
+                options: { showEffects: true },
+              })
+              let createdObjectId = ''
+              if (
+                txn.effects &&
+                txn.effects.created &&
+                txn.effects?.created?.length > 0
+              ) {
+                createdObjectId = txn.effects?.created[0]?.reference.objectId
+              }
+              if (!createdObjectId) {
+                toast.error(
+                  'Transaction succeeded but no object ID was returned',
+                )
+                setActionModal((m) => ({ ...m, open: false }))
+                return
+              }
+              // Batch upsert milestones in one transaction
+              const filteredMilestones = milestones.filter(
+                (m) =>
+                  m.description_hash && m.description_hash.trim().length > 0,
+              )
+              if (filteredMilestones.length > 0) {
+                let milestoneBatch
+                try {
+                  milestoneBatch = milestonesToBatchArrays(filteredMilestones)
+                } catch (err: any) {
+                  toast.error(err.message || 'Invalid milestone data.')
+                  return
+                }
+                const { milestone_ids, description_hashes, values } =
+                  milestoneBatch
+                const batchTx = await import('@/service/PactdaService').then(
+                  (mod) =>
+                    mod.buildBatchUpsertMilestonesTx(
+                      createdObjectId,
+                      milestone_ids,
+                      description_hashes,
+                      values,
+                    ),
+                )
+                await signAndExecuteTransaction({ transaction: batchTx })
+              }
+              toast.success('Contract and milestones created successfully!')
+              localStorage.removeItem('contractDrafts')
+              localStorage.removeItem('currentDraftId')
+              navigate(`/contract/${createdObjectId}`)
+              setTitle(undefined)
+              setSuiPartyBAddress(undefined)
+              setContractType(undefined)
+              setTermsReference(undefined)
+              setStartDate(undefined)
+              setEndDate(undefined)
+              setMetadata(undefined)
+            } catch (e: unknown) {
+              let errorMessage = 'Failed to create contract: '
+              if (e instanceof Error) errorMessage += e.message
+              else errorMessage += 'An unexpected error occurred.'
+              toast.error(errorMessage)
+            } finally {
+              setActionModal((m) => ({ ...m, open: false }))
+            }
+          },
+        })
+      } else if (mode === 'update' && (initialValues as any).contractId) {
+        const contractId = (initialValues as any).contractId
+        let removedMilestoneIds: number[] = []
+        let originalMilestones: Milestone[] = []
+        if (
+          initialValues.milestones &&
+          isOnChainMilestoneArray(initialValues.milestones)
+        ) {
+          originalMilestones = onChainToMilestoneArray(
+            initialValues.milestones as OnChainMilestone[],
+          )
+          const originalIds = (
+            initialValues.milestones as OnChainMilestone[]
+          ).map((m) => Number(m.fields.id))
+          const currentOnChainIds = milestones
+            .map((m) =>
+              m.onChainId !== undefined ? Number(m.onChainId) : undefined,
+            )
+            .filter((id): id is number => id !== undefined)
+          removedMilestoneIds = originalIds.filter(
+            (id) => !currentOnChainIds.includes(id),
+          )
+        }
+        const filteredMilestones = milestones.filter(
+          (m) => m.description_hash && m.description_hash.trim().length > 0,
+        )
+        const milestonesChanged = !milestonesEqual(
+          filteredMilestones,
+          originalMilestones,
+        )
+        if (!milestonesChanged) {
+          const buildUpdateContractTx = (
+            await import('@/service/PactdaService')
+          ).buildUpdateContractTx
+            const chainId =
+            CHAIN_IDS[partyBBlockchain] ||
+            Number(import.meta.env.VITE_CHAIN_ID_SUI)
+            let addressBytes: number[] = []
+            if (partyBBlockchain === 'Solana') {
+              addressBytes = Array.from(
+                new TextEncoder().encode(suiPartyBAddress || ''),
+              )
+            } else {
+              addressBytes = suiPartyBAddress
+                ? Array.from(
+                    (suiPartyBAddress.slice(2).match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16)),
+                  )
+                : []
+            }
+            let partyBCrossChain = ''
+            if (addressBytes.length > 0) {
+              partyBCrossChain = addressBytes
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join('')
+            }
+            console.log('partyBCrossChain', partyBCrossChain)
+          const txb = await buildUpdateContractTx(contractId, {
+            chainId,
+            suiPartyBAddress,
+            contractType,
+            termsReference,
+            metadata,
+            startDate,
+            endDate,
+            partyBCrossChain,
+          })
+          setActionModal({
+            open: true,
+            txb,
+            title: 'Confirm Contract Update',
+            content: (
+              <div>
+                <p className="mb-2">
+                  You are about to update contract details (no milestone
+                  changes). Please review the estimated transaction fee below
+                  before confirming.
+                </p>
+              </div>
+            ),
+            onConfirmed: async (result: any) => {
+              try {
+                if (!result.digest) {
+                  toast.error(
+                    'Transaction succeeded but no digest was returned',
+                  )
+                  setActionModal((m) => ({ ...m, open: false }))
+                  return
+                }
+                await suiClient.waitForTransaction({
+                  digest: result.digest,
+                  options: { showEffects: true },
+                })
+                toast.success('Contract updated successfully!')
+                navigate(`/contract/${contractId}`)
+              } catch (e: unknown) {
+                let errorMessage = 'Failed to update contract: '
+                if (e instanceof Error) errorMessage += e.message
+                else errorMessage += 'An unexpected error occurred.'
+                toast.error(errorMessage)
+              } finally {
+                setActionModal((m) => ({ ...m, open: false }))
+              }
+            },
+          })
+          setLoading(false)
+          return
+        }
+        let updateTxb
+        try {
+          const chainId =
+            CHAIN_IDS[partyBBlockchain] ||
+            Number(import.meta.env.VITE_CHAIN_ID_SUI)
+          if (partyBBlockchain === 'Sui') {
+            updateTxb = buildUpdateContractTx(contractId, {
+              suiPartyBAddress,
+              contractType,
+              termsReference,
+              metadata,
+              startDate,
+              endDate,
+            })
+          } else {
+            // Cross-chain update
+            let addressBytes: number[] = []
+            if (partyBBlockchain === 'Solana') {
+              addressBytes = Array.from(
+                new TextEncoder().encode(suiPartyBAddress || ''),
+              )
+            } else {
+              addressBytes = suiPartyBAddress
+                ? Array.from(
+                    (suiPartyBAddress.slice(2).match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16)),
+                  )
+                : []
+            }
+            let partyBCrossChain = ''
+            if (addressBytes.length > 0) {
+              partyBCrossChain = addressBytes
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join('')
+            }
+            updateTxb = buildUpdateContractTx(contractId, {
+              contractType,
+              termsReference,
+              metadata,
+              startDate,
+              endDate,
+              chainId,
+              partyBCrossChain,
+            })
+          }
+          if (address) updateTxb.setSenderIfNotSet(address)
+          setActionModal({
+            open: true,
+            txb: updateTxb,
+            title: 'Confirm Contract Update',
+            content: (
+              <div>
+                <p className="mb-2">
+                  You are about to update the contract and milestones. Please
+                  review the estimated transaction fee below before confirming.
+                </p>
+                {title && (
+                  <p>
+                    <span className="font-semibold">Title:</span> {title}
+                  </p>
+                )}
+                {milestones && milestones.length > 0 && (
+                  <div className="mt-2">
+                    <span className="font-semibold">Milestones:</span>
+                    <ul className="list-disc ml-6">
+                      {milestones.map((m, i) => (
+                        <li key={i}>{m.description_hash}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ),
+            onConfirmed: async (result: any) => {
+              try {
+                if (!result.digest) {
+                  toast.error(
+                    'Transaction succeeded but no digest was returned',
+                  )
+                  setActionModal((m) => ({ ...m, open: false }))
+                  return
+                }
+                const txn = await suiClient.waitForTransaction({
+                  digest: result.digest,
+                  options: { showEffects: true },
+                })
+                let updatedObjectId = ''
+                if (
+                  txn.effects &&
+                  txn.effects.created &&
+                  txn.effects?.created?.length > 0
+                ) {
+                  updatedObjectId = txn.effects?.created[0]?.reference.objectId
+                }
+                if (!updatedObjectId) {
+                  toast.error(
+                    'Transaction succeeded but no object ID was returned',
+                  )
+                  setActionModal((m) => ({ ...m, open: false }))
+                  return
+                }
+                // Handle milestone updates
+                const filteredMilestones = milestones.filter(
+                  (m) =>
+                    m.description_hash && m.description_hash.trim().length > 0,
+                )
+                if (filteredMilestones.length > 0) {
+                  let milestoneBatch
+                  try {
+                    milestoneBatch = milestonesToBatchArrays(filteredMilestones)
+                  } catch (err: any) {
+                    toast.error(err.message || 'Invalid milestone data.')
+                    return
+                  }
+                  const { milestone_ids, description_hashes, values } =
+                    milestoneBatch
+                  const batchTx = await import('@/service/PactdaService').then(
+                    (mod) =>
+                      mod.buildBatchUpsertMilestonesTx(
+                        updatedObjectId,
+                        milestone_ids,
+                        description_hashes,
+                        values,
+                      ),
+                  )
+                  await signAndExecuteTransaction({ transaction: batchTx })
+                }
+                toast.success('Contract and milestones updated successfully!')
+                navigate(`/contract/${contractId}`)
+              } catch (e: unknown) {
+                let errorMessage = 'Failed to update contract: '
+                if (e instanceof Error) errorMessage += e.message
+                else errorMessage += 'An unexpected error occurred.'
+                toast.error(errorMessage)
+              } finally {
+                setActionModal((m) => ({ ...m, open: false }))
+              }
+            },
+          })
+        } catch (e: unknown) {
+          let errorMessage = 'Failed to update contract: '
+          if (e instanceof Error) errorMessage += e.message
+          else errorMessage += 'An unexpected error occurred.'
+          toast.error(errorMessage)
+        } finally {
+          setLoading(false)
+        }
       }
+    } catch (e: unknown) {
+      let errorMessage = 'Failed to create contract: '
+      if (e instanceof Error) errorMessage += e.message
+      else errorMessage += 'An unexpected error occurred.'
+      toast.error(errorMessage)
+      setLoading(false)
+    }
+  }
+
+  const handleConfirmTransaction = async (result: any) => {
+    try {
+      if (!result.digest) {
+        toast.error('Transaction succeeded but no digest was returned')
+        setActionModal((m) => ({ ...m, open: false }))
+        return
+      }
+      const txn = await suiClient.waitForTransaction({
+        digest: result.digest,
+        options: { showEffects: true },
+      })
+      let createdObjectId = ''
+      if (
+        txn.effects &&
+        txn.effects.created &&
+        txn.effects?.created?.length > 0
+      ) {
+        createdObjectId = txn.effects?.created[0]?.reference.objectId
+      }
+      if (!createdObjectId) {
+        toast.error('Transaction succeeded but no object ID was returned')
+        setActionModal((m) => ({ ...m, open: false }))
+        return
+      }
+      toast.success('Contract created successfully!')
+      localStorage.removeItem('contractDrafts')
+      localStorage.removeItem('currentDraftId')
+      navigate(`/contract/${createdObjectId}`)
+      setTitle(undefined)
+      setSuiPartyBAddress(undefined)
+      setContractType(undefined)
+      setTermsReference(undefined)
+      setStartDate(undefined)
+      setEndDate(undefined)
+      setMetadata(undefined)
     } catch (e: unknown) {
       let errorMessage = 'Failed to create contract: '
       if (e instanceof Error) {
@@ -474,67 +991,20 @@ const ContractForm: React.FC<ContractFormProps> = ({
         errorMessage += 'An unexpected error occurred.'
       }
       toast.error(errorMessage)
-      setLoading(false)
-    }
-  }
-
-  const handleConfirmTransaction = async () => {
-    if (!pendingTxb) return;
-    setConfirming(true);
-    try {
-      const result = await signAndExecuteTransaction({ transaction: pendingTxb });
-      if (!result.digest) {
-        toast.error('Transaction succeeded but no digest was returned');
-        setConfirming(false);
-        setShowConfirmModal(false);
-        return;
-      }
-      const txn = await suiClient.waitForTransaction({
-        digest: result.digest,
-        options: { showEffects: true },
-      });
-      let createdObjectId = '';
-      if (txn.effects && txn.effects.created && txn.effects?.created?.length > 0) {
-        createdObjectId = txn.effects?.created[0]?.reference.objectId;
-      }
-      if (!createdObjectId) {
-        toast.error('Transaction succeeded but no object ID was returned');
-        setConfirming(false);
-        setShowConfirmModal(false);
-        return;
-      }
-      toast.success('Contract created successfully!');
-      localStorage.removeItem('contractDrafts');
-      localStorage.removeItem('currentDraftId');
-      navigate(`/contract/${createdObjectId}`);
-      setTitle(undefined);
-      setSuiPartyBAddress(undefined);
-      setContractType(undefined);
-      setTermsReference(undefined);
-      setStartDate(undefined);
-      setEndDate(undefined);
-      setMetadata(undefined);
-    } catch (e: unknown) {
-      let errorMessage = 'Failed to create contract: ';
-      if (e instanceof Error) {
-        errorMessage += e.message;
-      } else {
-        errorMessage += 'An unexpected error occurred.';
-      }
-      toast.error(errorMessage);
     } finally {
-      setConfirming(false);
-      setShowConfirmModal(false);
+      setActionModal((m) => ({ ...m, open: false }))
     }
   }
 
   const saveDraft = () => {
     try {
       const existingDraftsJSON = localStorage.getItem('contractDrafts')
-      const existingDrafts = existingDraftsJSON ? JSON.parse(existingDraftsJSON) : []
-      
+      const existingDrafts = existingDraftsJSON
+        ? JSON.parse(existingDraftsJSON)
+        : []
+
       const newDraft = {
-        id: Date.now().toString(), 
+        id: Date.now().toString(),
         createdAt: new Date().toISOString(),
         title: title || 'Untitled Draft',
         data: {
@@ -546,15 +1016,15 @@ const ContractForm: React.FC<ContractFormProps> = ({
           startDate: startDate ? startDate.toISOString() : undefined,
           endDate: endDate ? endDate.toISOString() : undefined,
           milestones,
-        }
+        },
       }
-      
+
       const updatedDrafts = [newDraft, ...existingDrafts]
-      
+
       localStorage.setItem('contractDrafts', JSON.stringify(updatedDrafts))
-      
+
       localStorage.setItem('currentDraftId', newDraft.id)
-      
+
       toast.success('Draft saved successfully!', {
         description: `Saved as "${newDraft.title}"`,
       })
@@ -568,41 +1038,43 @@ const ContractForm: React.FC<ContractFormProps> = ({
     setShowDraftMenu(false)
     loadDraft(draftId)
   }
-  
+
   const handleLoadDraftClick = () => {
     if (drafts.length === 1) {
       loadDraft(drafts[0].id)
       return
     }
-    
+
     setShowDraftMenu(!showDraftMenu)
   }
-  
+
   const deleteDraft = (draftId: string, event: React.MouseEvent) => {
     event.stopPropagation() // Prevent the draft from being loaded
-    
+
     try {
       const draftsJSON = localStorage.getItem('contractDrafts')
       if (!draftsJSON) return
-      
+
       const existingDrafts = JSON.parse(draftsJSON)
-      const updatedDrafts = existingDrafts.filter((draft: any) => draft.id !== draftId)
-      
+      const updatedDrafts = existingDrafts.filter(
+        (draft: any) => draft.id !== draftId,
+      )
+
       localStorage.setItem('contractDrafts', JSON.stringify(updatedDrafts))
       setDrafts(updatedDrafts)
-      
+
       const currentId = localStorage.getItem('currentDraftId')
       if (currentId === draftId) {
         localStorage.removeItem('currentDraftId')
       }
-      
+
       toast.success('Draft deleted successfully')
     } catch (error) {
       toast.error('Failed to delete draft')
       console.error('Error deleting draft:', error)
     }
   }
-  
+
   const loadDraft = (draftId?: string) => {
     try {
       const draftsJSON = localStorage.getItem('contractDrafts')
@@ -610,30 +1082,30 @@ const ContractForm: React.FC<ContractFormProps> = ({
         toast.info('No saved drafts found')
         return
       }
-      
+
       const drafts = JSON.parse(draftsJSON)
       if (!drafts.length) {
         toast.info('No saved drafts found')
         return
       }
-      
+
       if (!draftId) {
         const currentId = localStorage.getItem('currentDraftId')
         draftId = currentId || drafts[0].id
       }
-      
+
       // Find the draft by ID
       const selectedDraft = drafts.find((draft: any) => draft.id === draftId)
       if (!selectedDraft) {
         toast.error('Draft not found')
         return
       }
-      
+
       localStorage.setItem('currentDraftId', selectedDraft.id)
-      
+
       const parsedDraft = selectedDraft.data
-      
-      const updates: {[key: string]: any} = {
+
+      const updates: { [key: string]: any } = {
         title: parsedDraft.title || undefined,
         suiPartyBAddress: parsedDraft.suiPartyBAddress || undefined,
         contractType: parsedDraft.contractType,
@@ -641,45 +1113,47 @@ const ContractForm: React.FC<ContractFormProps> = ({
         metadata: parsedDraft.metadata || undefined,
         startDate: undefined,
         endDate: undefined,
-        milestones: parsedDraft.milestones || []
-      };
-      
+        milestones: parsedDraft.milestones || [],
+      }
+
       if (parsedDraft.startDate) {
-        updates.startDate = new Date(parsedDraft.startDate);
+        updates.startDate = new Date(parsedDraft.startDate)
       }
       if (parsedDraft.endDate) {
-        updates.endDate = new Date(parsedDraft.endDate);
+        updates.endDate = new Date(parsedDraft.endDate)
       }
-      
-      setTitle(undefined);
-      setSuiPartyBAddress(undefined);
-      setContractType(undefined);
-      setTermsReference(undefined);
-      setMetadata(undefined);
-      setStartDate(undefined);
-      setEndDate(undefined);
-      setMilestones([]);
-      
-      setTitle(updates.title);
-      setSuiPartyBAddress(updates.suiPartyBAddress);
-      setContractType(updates.contractType);
-      setTermsReference(updates.termsReference);
-      setMetadata(updates.metadata);
-      setStartDate(updates.startDate);
-      setEndDate(updates.endDate);
-      if (updates.milestones) setMilestones(updates.milestones);
-      
+
+      setTitle(undefined)
+      setSuiPartyBAddress(undefined)
+      setContractType(undefined)
+      setTermsReference(undefined)
+      setMetadata(undefined)
+      setStartDate(undefined)
+      setEndDate(undefined)
+      setMilestones([])
+
+      setTitle(updates.title)
+      setSuiPartyBAddress(updates.suiPartyBAddress)
+      setContractType(updates.contractType)
+      setTermsReference(updates.termsReference)
+      setMetadata(updates.metadata)
+      setStartDate(updates.startDate)
+      setEndDate(updates.endDate)
+      if (updates.milestones) setMilestones(updates.milestones)
+
       setTimeout(() => {
-        updateCompletedSteps();
+        updateCompletedSteps()
         toast.success('Draft loaded successfully!', {
-          description: `Loaded "${selectedDraft.title}" (${new Date(selectedDraft.createdAt).toLocaleString()})`,
+          description: `Loaded "${selectedDraft.title}" (${new Date(
+            selectedDraft.createdAt,
+          ).toLocaleString()})`,
           duration: 3000,
-        });
-      }, 0);
-      
+        })
+      }, 0)
+
       // Scroll to top of the form
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+
       return selectedDraft
     } catch (error) {
       toast.error('Failed to load draft.')
@@ -710,6 +1184,41 @@ const ContractForm: React.FC<ContractFormProps> = ({
       setUploading(false)
     }
   }
+
+  const CHAIN_IDS: Record<string, number> = {
+    Sui: Number(import.meta.env.VITE_CHAIN_ID_SUI) || 21,
+    Solana: Number(import.meta.env.VITE_CHAIN_ID_SOLANA) || 1,
+    Ethereum: Number(import.meta.env.VITE_CHAIN_ID_ETHEREUM) || 2,
+    Polygon: Number(import.meta.env.VITE_CHAIN_ID_POLYGON) || 5,
+    Avalanche: Number(import.meta.env.VITE_CHAIN_ID_AVALANCHE) || 6,
+  }
+
+  useEffect(() => {
+    if (
+      mode === 'update' &&
+      initialValues &&
+      initialValues.cross_chain_parties
+    ) {
+      const { fields } = initialValues.cross_chain_parties[0]
+      if (fields.chain_id && fields.party_address) {
+        const chain_id = fields.chain_id
+        const party_address = new TextDecoder().decode(
+          Uint8Array.from(fields.party_address),
+        )
+        const chainName = Object.keys(CHAIN_IDS).find(
+          (key) => CHAIN_IDS[key] == chain_id,
+        )
+        setPartyBBlockchain(chainName || 'Sui')
+        setSuiPartyBAddress(party_address)
+      }
+    } else if (
+      mode === 'update' &&
+      initialValues &&
+      !initialValues.cross_chain_parties
+    ) {
+      setPartyBBlockchain('Sui')
+    }
+  }, [mode, initialValues])
 
   return (
     <div className="relative bg-gradient-to-br from-[#0a1836] via-[#0d2047] to-[#101c3a] min-h-screen rounded-2xl shadow-2xl border border-blue-900/40 p-2 md:p-8">
@@ -781,10 +1290,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
         <span className="text-red-400 mr-1 text-lg">*</span> Only the contract
         title is required
       </div>
-      
+
       {/* Draft management banner */}
       {mode === 'create' && drafts.length > 0 && (
-        <motion.div 
+        <motion.div
           className="mb-6 bg-gradient-to-r from-slate-800 to-slate-700 p-4 rounded-lg border border-emerald-500/20 shadow-lg"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -793,58 +1302,87 @@ const ContractForm: React.FC<ContractFormProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <span className="text-emerald-400 mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
                   <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
                 </svg>
               </span>
-              <h3 className="text-emerald-300 font-medium">Saved Drafts ({drafts.length})</h3>
+              <h3 className="text-emerald-300 font-medium">
+                Saved Drafts ({drafts.length})
+              </h3>
             </div>
-            
+
             <Button
               onClick={() => setShowDraftMenu(!showDraftMenu)}
               className="bg-emerald-700/50 hover:bg-emerald-700/70 border border-emerald-600/50 text-emerald-100 text-xs px-3 py-1 rounded-md"
             >
-              {showDraftMenu ? "Hide Drafts" : "View Drafts"}
+              {showDraftMenu ? 'Hide Drafts' : 'View Drafts'}
             </Button>
           </div>
-          
+
           {/* Draft list */}
           {showDraftMenu && (
             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto pt-2 border-t border-slate-600/50">
               {drafts.map((draft) => (
-                <div 
+                <div
                   key={draft.id}
                   className="p-2 bg-slate-700/50 hover:bg-slate-600/50 rounded-md cursor-pointer flex justify-between items-center"
                   onClick={() => loadDraftById(draft.id)}
                 >
                   <div className="overflow-hidden">
                     <div className="font-medium text-blue-300 truncate">
-                      {draft.title || "Untitled Draft"}
+                      {draft.title || 'Untitled Draft'}
                     </div>
                     <div className="text-xs text-slate-400">
                       {new Date(draft.createdAt).toLocaleString()}
                     </div>
                   </div>
                   <div className="flex space-x-1">
-                    <button 
+                    <button
                       className="p-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-800/30 rounded-full"
                       onClick={(e) => {
-                        e.stopPropagation();
-                        loadDraftById(draft.id);
+                        e.stopPropagation()
+                        loadDraftById(draft.id)
                       }}
                       title="Load this draft"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                        />
                       </svg>
                     </button>
-                    <button 
+                    <button
                       className="p-1 text-red-400 hover:text-red-300 hover:bg-red-800/30 rounded-full"
                       onClick={(e) => deleteDraft(draft.id, e)}
                       title="Delete this draft"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -853,9 +1391,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
             </div>
           )}
         </motion.div>
-        
       )}
-      
+
       <motion.div
         className="space-y-8"
         variants={containerVariants}
@@ -970,10 +1507,11 @@ const ContractForm: React.FC<ContractFormProps> = ({
               <PartyInformation
                 partyAAddress={address}
                 partyBAddress={suiPartyBAddress}
+                partyBBlockchain={partyBBlockchain}
                 onPartyBAddressChange={handlePartyBAddressChange}
               />
               <div className="text-xs text-blue-300 mt-1 ml-1">
-                Enter the Sui address of the other party.
+                Enter the address and select the blockchain of the other party.
               </div>
             </div>
           </FormSection>
@@ -1015,7 +1553,12 @@ const ContractForm: React.FC<ContractFormProps> = ({
               milestones={milestones}
               updateMilestone={updateMilestone}
               removeMilestone={removeMilestone}
-              addMilestone={addMilestone}
+              addMilestone={() => {
+                setMilestones((prev) => [
+                  ...prev,
+                  { id: prev.length, description_hash: '', value: 0 },
+                ])
+              }}
             />
             <div className="text-xs text-blue-300 mt-1 ml-1">
               Break down the contract into milestones for staged payments
@@ -1070,7 +1613,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
                   {/* Subtle glow effect */}
                   <div className="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-600/10 to-emerald-700/10 blur-lg rounded-2xl"></div>
                 </motion.div>
-                
+
                 {/* Drafts dropdown menu */}
                 {showDraftMenu && drafts.length > 0 && (
                   <div className="absolute top-full left-0 mt-2 w-72 max-h-64 overflow-y-auto bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-50">
@@ -1078,26 +1621,37 @@ const ContractForm: React.FC<ContractFormProps> = ({
                       Select a draft to load
                     </div>
                     {drafts.map((draft) => (
-                      <div 
+                      <div
                         key={draft.id}
                         className="p-3 hover:bg-slate-700 border-b border-slate-700 last:border-b-0 cursor-pointer transition-colors flex justify-between items-center"
                         onClick={() => loadDraftById(draft.id)}
                       >
                         <div>
                           <div className="text-blue-300 font-medium truncate w-48">
-                            {draft.title || "Untitled Draft"}
+                            {draft.title || 'Untitled Draft'}
                           </div>
                           <div className="text-xs text-slate-400">
                             {new Date(draft.createdAt).toLocaleString()}
                           </div>
                         </div>
-                        <button 
+                        <button
                           className="text-red-400 hover:text-red-300 p-1 rounded-full hover:bg-red-900/20"
                           onClick={(e) => deleteDraft(draft.id, e)}
                           title="Delete draft"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -1105,7 +1659,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
                   </div>
                 )}
               </div>
-              
+
               {/* Save Draft button */}
               <motion.div
                 className="relative"
@@ -1124,7 +1678,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
               </motion.div>
             </div>
           )}
-          
+
           {/* Create/Update button */}
           <motion.div
             className="relative"
@@ -1138,8 +1692,12 @@ const ContractForm: React.FC<ContractFormProps> = ({
               disabled={loading}
             >
               {loading
-                ? (mode === 'update' ? 'Updating...' : 'Creating...')
-                : (mode === 'update' ? 'Update Contract' : 'Create Contract')}
+                ? mode === 'update'
+                  ? 'Updating...'
+                  : 'Creating...'
+                : mode === 'update'
+                  ? 'Update Contract'
+                  : 'Create Contract'}
             </Button>
             {/* Glow effect */}
             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-blue-600/20 to-indigo-700/20 blur-lg rounded-2xl"></div>
@@ -1156,7 +1714,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
               required
             </li>
             <li>Use "Save Draft" to save multiple versions of your contract</li>
-            <li>Use "Load Draft" to select and continue working on a previously saved version</li>
+            <li>
+              Use "Load Draft" to select and continue working on a previously
+              saved version
+            </li>
             <li>Be specific and clear with your agreement title and terms</li>
             <li>Include all relevant dates and deadlines</li>
             <li>Specify milestones for complex agreements to track progress</li>
@@ -1165,24 +1726,18 @@ const ContractForm: React.FC<ContractFormProps> = ({
         </div>
       </motion.div>
 
-      <ConfirmationModal
-        isOpen={showConfirmModal}
-        onClose={() => { setShowConfirmModal(false); setPendingTxb(null); }}
-        onConfirm={handleConfirmTransaction}
-        title="Confirm Contract Creation"
-        isLoading={gasLoading}
-        isConfirming={confirming}
-        estimatedGas={estimatedGas}
-        gasCalculationError={gasError}
-        currentBalance={currentBalance}
+      <ContractActionConfirmationModal
+        isOpen={actionModal.open}
+        onClose={() => setActionModal((m) => ({ ...m, open: false }))}
+        onConfirmed={async (result) => {
+          await actionModal.onConfirmed(result)
+          setActionModal((m) => ({ ...m, open: false }))
+        }}
+        transactionBlock={actionModal.txb}
+        title={actionModal.title}
       >
-        <div>
-          <p className="mb-2">You are about to create a new contract. Please review the estimated transaction fee below before confirming.</p>
-          {title && <p><span className="font-semibold">Title:</span> {title}</p>}
-          {suiPartyBAddress && <p><span className="font-semibold">Party B:</span> {suiPartyBAddress}</p>}
-          {contractType !== undefined && <p><span className="font-semibold">Type:</span> {contractType}</p>}
-        </div>
-      </ConfirmationModal>
+        {actionModal.content}
+      </ContractActionConfirmationModal>
     </div>
   )
 }

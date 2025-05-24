@@ -47,7 +47,7 @@ const ContractTerms = ({
           Contract Summary
         </label>
         <textarea
-          value={termsReference}
+          value={termsReference ?? ''}
           onChange={onTermsReferenceChange}
           placeholder="Brief description of the agreement terms..."
           rows={4}

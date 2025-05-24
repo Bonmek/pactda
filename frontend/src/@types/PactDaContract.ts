@@ -1,9 +1,11 @@
+import { Milestone, OnChainMilestone } from "@/types/milestone"
+
 export type PactDaContract = {
   objectId: string
   version: string
   digest: string
   escrowId: string | null
-  milestones: any
+  milestones: Milestone[] | OnChainMilestone[]
   partyA: string
   partyASigned: boolean
   partyB: string
@@ -15,4 +17,5 @@ export type PactDaContract = {
   contractDeadlineDate: number | null
   contractType: number | null
   metadata: string | null
+  cross_chain_parties: any
 }

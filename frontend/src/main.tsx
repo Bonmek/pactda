@@ -8,6 +8,10 @@ import './styles/shared.css'
 import App from './App'
 import { Providers } from './providers'
 import { ThemeProvider } from './context/ThemeContext'
+import initializeServices from './service/ServiceInitializer'
+
+// Initialize services
+initializeServices()
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 

@@ -8,11 +8,11 @@ import HowToUse from './pages/HowToUse'
 import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import CreateContract from './pages/CreateContract'
-import ContractDetail from './pages/ContractDetail'
 import Home from './pages/Home'
 import About from './pages/About'
 import Docs from './pages/Docs'
 import UpdateContract from './pages/UpdateContract'
+import ContractDetail from './pages/ContractDetail'
 
 interface HomeProps {
   selectedWalletType: 'sui' | 'metamask' | 'google' | 'facebook' | null

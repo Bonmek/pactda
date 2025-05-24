@@ -1,18 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { PlusCircle } from 'lucide-react'
 import MilestoneItem from './MilestoneItem'
-
-type Milestone = {
-  id: string
-  title: string
-  description: string
-  value: string
-}
+import { getMilestoneField } from '@/utils/milestone'
 
 interface MilestoneListProps {
-  milestones: Milestone[]
-  updateMilestone: (id: string, field: keyof Milestone, value: string) => void
-  removeMilestone: (id: string) => void
+  milestones: any[]
+  updateMilestone: (id: number, field: string, value: string) => void
+  removeMilestone: (id: number) => void
   addMilestone: () => void
 }
 
@@ -26,14 +20,18 @@ const MilestoneList = ({
     <div>
       {milestones.length > 0 ? (
         <div>
-          {milestones.map((milestone) => (
-            <MilestoneItem
-              key={milestone.id}
-              milestone={milestone}
-              onUpdate={updateMilestone}
-              onRemove={removeMilestone}
-            />
-          ))}
+          {milestones.map((milestone) => {
+            const isOnChain = !!milestone.fields
+            return (
+              <MilestoneItem
+                key={getMilestoneField(milestone, 'id') || getMilestoneField(milestone, 'description_hash')}
+                milestone={milestone}
+                index={milestones.indexOf(milestone)}
+                onUpdate={updateMilestone}
+                onRemove={removeMilestone}
+              />
+            )
+          })}
         </div>
       ) : (
         <div className="text-center py-6 text-indigo-300/70">

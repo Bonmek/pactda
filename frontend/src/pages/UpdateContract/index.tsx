@@ -1,4 +1,4 @@
-import ContractForm from '@/components/CreateContract/CreateForm'
+import ContractForm from '@/components/CreateContract/ContractForm'
 import { motion } from 'framer-motion'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -28,7 +28,6 @@ const UpdateContract = () => {
     setLoading(true)
     const res = await getContracts(suiClient, id!)
     setContract(res)
-    // Transform for ContractForm initialValues
     const initial = res
       ? {
           title: res.title ?? '',
@@ -44,6 +43,8 @@ const UpdateContract = () => {
             ? new Date(Number(res.contractDeadlineDate) * 1000)
             : undefined,
           milestones: Array.isArray(res.milestones) ? res.milestones : [],
+          contractId: res.objectId,
+          cross_chain_parties: res.cross_chain_parties,
         }
       : undefined
     setInitialValues(initial || null)
@@ -66,7 +67,6 @@ const UpdateContract = () => {
       console.error('Error updating contract:', error)
     }
   }
-  console.log('contract', contract)
 
   return (
     <div className="min-h-screen text-white p-4 md:p-8 flex-col justify-center">

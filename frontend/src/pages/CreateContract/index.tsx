@@ -1,7 +1,7 @@
-import ContractForm from '@/components/CreateContract/CreateForm'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
+import ContractForm from '@/components/CreateContract/ContractForm'
 
 const CreateContract = () => {
   const navigate = useNavigate()

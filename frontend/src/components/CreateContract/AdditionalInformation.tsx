@@ -17,7 +17,7 @@ const AdditionalInformation = ({
         <Input
           placeholder="e.g., Project documentation, design files, etc."
           className="bg-slate-800/30 border-slate-700/50 text-white"
-          value={metaData}
+          value={metaData ?? ''}
           onChange={onMetadataChange}
         />
       </div>

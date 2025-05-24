@@ -14,6 +14,8 @@ interface ConfirmationModalProps {
   estimatedGas?: string | null;
   gasCalculationError?: string | null;
   children?: React.ReactNode; // For additional content in the modal body
+  escrowAmount?: number | null; // Amount to be escrowed
+  escrowAction?: 'refund' | 'fund'; // Action type for escrow
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -27,6 +29,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   estimatedGas,
   gasCalculationError,
   children,
+  escrowAction,
+  escrowAmount,
 }) => {
   if (!isOpen) {
     return null;
@@ -34,12 +38,48 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   // Calculate post-transaction balance if possible
   let postTxnBalance: string | null = null;
+  let postTxnHighlight: React.ReactNode = null;
   if (currentBalance && estimatedGas) {
     const current = parseFloat(currentBalance);
     const gas = parseFloat(estimatedGas);
     if (!isNaN(current) && !isNaN(gas)) {
       postTxnBalance = (current - gas).toFixed(6);
     }
+  }
+
+
+  function extractEscrowProps(child: any) {
+    if (child && typeof child === 'object' && child.props) {
+      if (typeof child.props.escrowAmount === 'number') escrowAmount = child.props.escrowAmount;
+      if (child.props.escrowAction === 'refund' || child.props.escrowAction === 'fund') escrowAction = child.props.escrowAction;
+    }
+  }
+  if (Array.isArray(children)) {
+    children.forEach(extractEscrowProps);
+  } else {
+    extractEscrowProps(children);
+  }
+
+  let escrowHighlight: React.ReactNode = null;
+  if (escrowAmount && escrowAction === 'refund') {
+    escrowHighlight = (
+      <span className="ml-2 text-green-400 font-bold animate-pulse">+{escrowAmount} SUI</span>
+    );
+  } else if (escrowAmount && escrowAction === 'fund') {
+    escrowHighlight = (
+      <span className="ml-2 text-red-400 font-bold animate-pulse">-{escrowAmount} SUI</span>
+    );
+  }
+
+  // Compose post-transaction highlight for refund/fund escrow
+  if (escrowAmount && escrowAction === 'refund') {
+    postTxnHighlight = (
+      <span className="ml-2 text-green-400 font-bold animate-pulse">+{escrowAmount} SUI</span>
+    );
+  } else if (escrowAmount && escrowAction === 'fund') {
+    postTxnHighlight = (
+      <span className="ml-2 text-red-400 font-bold animate-pulse">-{escrowAmount} SUI</span>
+    );
   }
 
   return (
@@ -67,12 +107,14 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <div className="mb-4 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
               <h3 className="text-sm font-medium text-slate-400 mb-1">Your SUI Balance:</h3>
               {currentBalance !== undefined && currentBalance !== null ? (
-                <div className="text-base text-sky-300 font-semibold">{currentBalance} SUI</div>
+                <div className="text-base text-sky-300 font-semibold flex items-center">{currentBalance} SUI {escrowHighlight}</div>
               ) : (
                 <div className="text-base text-slate-500">N/A</div>
               )}
               {postTxnBalance !== null && (
-                <div className="text-xs text-slate-400 mt-1">After transaction: <span className="text-green-400 font-semibold">{postTxnBalance} SUI</span></div>
+                <div className="text-xs text-slate-400 mt-1 flex items-center">
+                  After transaction: <span className="text-green-400 font-semibold ml-1">{postTxnBalance} SUI</span> {postTxnHighlight}
+                </div>
               )}
             </div>
 

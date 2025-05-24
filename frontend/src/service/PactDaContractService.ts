@@ -1,6 +1,9 @@
 import { PactDaContract } from '@/@types/PactDaContract'
+import { TransactionBlock } from '@mysten/sui.js/transactions'
 import { SuiClient } from '@mysten/sui/client'
 import { Transaction } from '@mysten/sui/transactions'
+import { toast } from 'sonner'
+import { buildCreateMilestoneTx, buildSignContractAsPartyATx, buildSignContractAsPartyBTx, buildSubmitContractTx } from './PactdaService'
 
 // Import environment variables for package and module
 const PACKAGE_ID =
@@ -104,76 +107,78 @@ export const getContracts = async (
     })
 }
 
-export const buildAddMilestoneTx = (
-  contractId: string,
-  milestoneTitle: string,
-  description?: string,
-  startDate?: number,
-  endDate?: number,
-  status?: number,
-): Transaction => {
-  if (!contractId) {
-    throw new Error('Contract ID is required')
-  }
 
-  if (!milestoneTitle) {
-    throw new Error('Milestone Title is required')
-  }
-
-  const txb = new Transaction()
-  const args = []
-
-  // === Helper Functions ===
-  const encodeBytes = (data: string) =>
-    Array.from(new TextEncoder().encode(data))
-
-  // === Contract ID (address) ===
-  args.push(txb.pure.address(contractId))
-
-  // === Milestone Title (string) ===
-  args.push(txb.pure.string(milestoneTitle))
-
-  // === Description (Option<vector<u8>>) ===
-  args.push(
-    description && description.trim() !== ''
-      ? txb.pure.option('vector<u8>', encodeBytes(description))
-      : txb.pure.option('vector<u8>', null),
-  )
-
-  // === Start Date (Option<u64>) ===
-  args.push(
-    startDate !== undefined
-      ? txb.pure.option('u64', BigInt(startDate))
-      : txb.pure.option('u64', null),
-  )
-
-  // === End Date (Option<u64>) ===
-  args.push(
-    endDate !== undefined
-      ? txb.pure.option('u64', BigInt(endDate))
-      : txb.pure.option('u64', null),
-  )
-
-  // === Status (Option<u8>) ===
-  args.push(
-    status !== undefined
-      ? txb.pure.option('u8', status)
-      : txb.pure.option('u8', null),
-  )
-
-  // === Move Call ===
-  try {
-    txb.moveCall({
-      target: `${PACKAGE_ID}::${MODULE_NAME}::add_milestone`,
-      arguments: args,
-    })
-    return txb
-  } catch (error) {
-    throw new Error(
-      `Failed to build transaction: ${error instanceof Error ? error.message : String(error)}`,
-    )
-  }
+// Get contract detail
+export const getContractDetail = async (suiClient, contractId) => {
+  const contracts = await getContracts(suiClient, [contractId])
+  return contracts[0] || null
 }
+
+// Sign contract
+export const signContract = async (
+  contract,
+  address,
+  signAndExecuteTransaction,
+  suiClient,
+  onSuccess,
+) => {
+  const { objectId, partyA, partyB } = contract
+  const isPartyA = address === partyA
+  const isPartyB = address === partyB
+  let txb
+  if (isPartyA) {
+    txb = await buildSignContractAsPartyATx(objectId)
+  } else if (isPartyB) {
+    txb = await buildSignContractAsPartyBTx(objectId)
+  } else {
+    toast.error('You are not a party to this contract.')
+    return
+  }
+  const result = await signAndExecuteTransaction({ transaction: txb })
+  if (!result.digest) {
+    toast.error('Transaction succeeded but no digest was returned')
+    return
+  }
+  toast.promise(
+    suiClient.waitForTransaction({ digest: result.digest, options: { showEffects: true } }),
+    {
+      loading: 'Processing signature...',
+      success: async () => {
+        await onSuccess()
+        return 'Contract signed successfully!'
+      },
+      error: 'Error processing signature.',
+    },
+  )
+}
+
+// Submit contract
+export const submitContract = async (
+  contract,
+  signAndExecuteTransaction,
+  suiClient,
+  onSuccess,
+) => {
+  const { objectId } = contract
+  const txb = await buildSubmitContractTx(objectId)
+  const result = await signAndExecuteTransaction({ transaction: txb })
+  if (!result.digest) {
+    toast.error('Transaction succeeded but no digest was returned')
+    return
+  }
+  toast.promise(
+    suiClient.waitForTransaction({ digest: result.digest, options: { showEffects: true } }),
+    {
+      loading: 'Submitting contract...',
+      success: async () => {
+        await onSuccess()
+        return 'Contract submitted successfully!'
+      },
+      error: 'Error submitting contract.',
+    },
+  )
+}
+
 
 // Export functions for contract interactions
 export {
