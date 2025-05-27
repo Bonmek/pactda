@@ -11,14 +11,15 @@ function SignContractAsPartyAButton({
   contractId,
   OnExecuted,
 }: SignContractAsPartyAButtonProps) {
-  const { mutate: standardSignAndExecuteTransaction } = useSignAndExecuteTransaction()
+  const { mutate: standardSignAndExecuteTransaction } =
+    useSignAndExecuteTransaction()
   const { mutate: zkLoginSignAndExecuteTransaction } = useZkLoginTransaction()
   const { zkloginAddress } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const chain = import.meta.env.VITE_SUI_CHAIN
-  
+
   // Choose the appropriate signing method
-  const signAndExecuteTransaction = zkloginAddress 
+  const signAndExecuteTransaction = zkloginAddress
     ? zkLoginSignAndExecuteTransaction
     : standardSignAndExecuteTransaction
   const handleClick = () => {

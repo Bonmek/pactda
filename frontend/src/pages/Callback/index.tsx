@@ -29,7 +29,7 @@ const GoogleCallback = () => {
 
         // Store the salt for future transaction signing
         sessionStorage.setItem('zklogin-salt', salt)
-        
+
         setZkloginAddress(zkLoginUserAddress)
       } catch (err: any) {
         console.error(err)

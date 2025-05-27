@@ -10,10 +10,7 @@ import ContractTerms from './ContractTerms'
 import EscrowPayment from './EscrowPayment'
 import MilestoneList from './MilestoneList'
 import { Milestone, OnChainMilestone } from '@/types/milestone'
-import {
-  useCurrentAccount,
-  useSuiClient,
-} from '@mysten/dapp-kit'
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUnifiedTransaction } from '@/hooks/useUnifiedTransaction'
@@ -163,10 +160,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
   const { executeTransaction } = useUnifiedTransaction()
   const { zkloginAddress } = useAuth()
   const navigate = useNavigate()
-  
+
   // Use zkLogin address if available, otherwise use Sui wallet address
   const userAddress = zkloginAddress || address
-  
+
   // Our unified transaction executor will handle both zkLogin and standard wallet transactions
   const signAndExecuteTransaction = async (params: { transaction: any }) => {
     return executeTransaction(params.transaction)
@@ -390,7 +387,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
     onConfirmed: () => {},
     content: null,
   })
-  
+
   // Login modal state
   const [loginModalOpen, setLoginModalOpen] = useState(false)
 
@@ -401,10 +398,12 @@ const ContractForm: React.FC<ContractFormProps> = ({
         setLoginModalOpen(true)
         return
       }
-      
+
       // Double-check authentication after modal is closed (safety check)
       if (!userAddress) {
-        toast.error('Please connect a wallet or login with Google/Facebook to create a contract.')
+        toast.error(
+          'Please connect a wallet or login with Google/Facebook to create a contract.',
+        )
         return
       }
       if (!title || title.trim().length < 3) {
@@ -624,9 +623,12 @@ const ContractForm: React.FC<ContractFormProps> = ({
               )}
               {suiPartyBAddress && (
                 <p>
-                  <span className="font-semibold">Party B Address:</span> {suiPartyBAddress}{' '}
+                  <span className="font-semibold">Party B Address:</span>{' '}
+                  {suiPartyBAddress}{' '}
                   {partyBBlockchain !== 'Sui' && (
-                    <span className="ml-1 text-blue-400">[{partyBBlockchain}]</span>
+                    <span className="ml-1 text-blue-400">
+                      [{partyBBlockchain}]
+                    </span>
                   )}
                 </p>
               )}
@@ -796,15 +798,19 @@ const ContractForm: React.FC<ContractFormProps> = ({
                 </p>
                 {suiPartyBAddress && (
                   <p>
-                    <span className="font-semibold">Party B Address:</span> {suiPartyBAddress}{' '}
+                    <span className="font-semibold">Party B Address:</span>{' '}
+                    {suiPartyBAddress}{' '}
                     {partyBBlockchain !== 'Sui' && (
-                      <span className="ml-1 text-blue-400">[{partyBBlockchain}]</span>
+                      <span className="ml-1 text-blue-400">
+                        [{partyBBlockchain}]
+                      </span>
                     )}
                   </p>
                 )}
                 {contractType !== undefined && (
                   <p>
-                    <span className="font-semibold">Contract Type:</span> {contractType}
+                    <span className="font-semibold">Contract Type:</span>{' '}
+                    {contractType}
                   </p>
                 )}
               </div>
@@ -904,9 +910,12 @@ const ContractForm: React.FC<ContractFormProps> = ({
                 )}
                 {suiPartyBAddress && (
                   <p>
-                    <span className="font-semibold">Party B Address:</span> {suiPartyBAddress}{' '}
+                    <span className="font-semibold">Party B Address:</span>{' '}
+                    {suiPartyBAddress}{' '}
                     {partyBBlockchain !== 'Sui' && (
-                      <span className="ml-1 text-blue-400">[{partyBBlockchain}]</span>
+                      <span className="ml-1 text-blue-400">
+                        [{partyBBlockchain}]
+                      </span>
                     )}
                   </p>
                 )}
@@ -1290,16 +1299,14 @@ const ContractForm: React.FC<ContractFormProps> = ({
           Smart Contract Agreement
         </span>
       </motion.h1>
-      
+
       {/* Connection status indicator */}
       <motion.div
         className="flex justify-center mb-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.5 }}
-      >
-
-      </motion.div>
+      ></motion.div>
       {/* Progress bar and step indicators */}
       <div className="sticky top-0 z-50 bg-gray-900/90 backdrop-blur-md py-3 mb-8 rounded-lg border border-blue-500/20 shadow-lg">
         <div className="mb-2 flex justify-between items-center px-4">
@@ -1318,7 +1325,8 @@ const ContractForm: React.FC<ContractFormProps> = ({
           ></div>
         </div>
         {/* Step indicators (no numbers, only show required for title) */}
-        <div className="flex justify-between mt-4 px-4 overflow-x-auto pb-2 hide-scrollbar">f
+        <div className="flex justify-between mt-4 px-4 overflow-x-auto pb-2 hide-scrollbar">
+          f
           {formSteps.map((step) => (
             <div
               key={step.id}
@@ -1808,7 +1816,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
       </ContractActionConfirmationModal>
 
       {/* Login Modal */}
-      <LoginModal 
+      <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
         onLoginSuccess={() => {

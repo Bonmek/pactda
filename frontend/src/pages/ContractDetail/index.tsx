@@ -25,13 +25,16 @@ import {
   getMilestoneStatusLabel,
 } from '@/utils/milestone'
 import { OnChainMilestone } from '@/types/milestone'
-import { useWallet } from '@solana/wallet-adapter-react'; // Correct hook for Solana wallet
-import { solanaService } from '@/service/SolanaService'; // Import the singleton
-import { ConnectionProvider as SolanaConnectionProvider, WalletProvider as SolanaWalletProvider } from '@solana/wallet-adapter-react';
-import { WalletModalProvider as SolanaWalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { clusterApiUrl } from '@solana/web3.js';
+import { useWallet } from '@solana/wallet-adapter-react' // Correct hook for Solana wallet
+import { solanaService } from '@/service/SolanaService' // Import the singleton
+import {
+  ConnectionProvider as SolanaConnectionProvider,
+  WalletProvider as SolanaWalletProvider,
+} from '@solana/wallet-adapter-react'
+import { WalletModalProvider as SolanaWalletModalProvider } from '@solana/wallet-adapter-react-ui'
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base'
+import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets'
+import { clusterApiUrl } from '@solana/web3.js'
 
 const agreementTypes = [
   { key: 'General', value: 0 },
@@ -56,7 +59,7 @@ function ContractDetail() {
   const suiAccount = useCurrentAccount()
   const address = suiAccount?.address
   const walletBalance = useWalletBalance(address, suiClient)
-  const solanaWallet = useWallet(); // Get Solana wallet context
+  const solanaWallet = useWallet() // Get Solana wallet context
 
   const {
     handleSignContract,
@@ -117,11 +120,13 @@ function ContractDetail() {
       proofInput,
     )
   }
-  
+
   // Add state for dispute modal
   const [showDisputeModal, setShowDisputeModal] = useState(false)
   const [disputeReason, setDisputeReason] = useState('')
-  const [disputeMilestoneId, setDisputeMilestoneId] = useState<number | null>(null)
+  const [disputeMilestoneId, setDisputeMilestoneId] = useState<number | null>(
+    null,
+  )
   const [submittingDispute, setSubmittingDispute] = useState(false)
 
   function handleOpenDisputeModal(milestoneId: number) {
@@ -134,7 +139,12 @@ function ContractDetail() {
     if (disputeMilestoneId === null || !disputeReason || !contract) return
     setSubmittingDispute(true)
     setShowDisputeModal(false)
-    await handleAction('disputeMilestone', undefined, disputeMilestoneId, disputeReason)
+    await handleAction(
+      'disputeMilestone',
+      undefined,
+      disputeMilestoneId,
+      disputeReason,
+    )
     setSubmittingDispute(false)
     setDisputeReason('')
     setDisputeMilestoneId(null)
@@ -389,13 +399,13 @@ function ContractDetail() {
       })
       return
     } else if (action === 'sign') {
-      const isPartyA = address === contract.partyA;
-      let isPartyB = address === contract.partyB;
-      const isCrossChain = PactdaService.isCrossChainContract(contract);
-      const crossChainInfo = PactdaService.getCrossChainInfo(contract);
+      const isPartyA = address === contract.partyA
+      let isPartyB = address === contract.partyB
+      const isCrossChain = PactdaService.isCrossChainContract(contract)
+      const crossChainInfo = PactdaService.getCrossChainInfo(contract)
       // --- Cross-chain Party B detection for non-Sui wallets ---
-      let crossChainPartyBAddress = getCrossChainPartyBAddress();
-      let isCrossChainPartyB = false;
+      let crossChainPartyBAddress = getCrossChainPartyBAddress()
+      let isCrossChainPartyB = false
       if (
         isCrossChain &&
         crossChainInfo &&
@@ -405,20 +415,24 @@ function ContractDetail() {
         crossChainPartyBAddress &&
         solanaWallet.publicKey.toBase58() === crossChainPartyBAddress
       ) {
-        isCrossChainPartyB = true;
+        isCrossChainPartyB = true
       }
       // ---
       if (
-        (isCrossChain && crossChainInfo && crossChainInfo.chainId === 1 && isPartyB) ||
+        (isCrossChain &&
+          crossChainInfo &&
+          crossChainInfo.chainId === 1 &&
+          isPartyB) ||
         isCrossChainPartyB
       ) {
         // Cross-chain Party B signing from Solana
-        const solanaPubkey = solanaWallet?.publicKey?.toBase58() || crossChainPartyBAddress;
+        const solanaPubkey =
+          solanaWallet?.publicKey?.toBase58() || crossChainPartyBAddress
         if (!solanaPubkey || !solanaWallet?.publicKey) {
-          toast.error('No Solana wallet connected.');
-          return;
+          toast.error('No Solana wallet connected.')
+          return
         }
-        await solanaService.ensureStubExistsForContract(solanaPubkey, contract);
+        await solanaService.ensureStubExistsForContract(solanaPubkey, contract)
         toast.promise(
           solanaService.signContractCrossChain(solanaPubkey, contract, {
             publicKey: solanaWallet.publicKey,
@@ -429,8 +443,8 @@ function ContractDetail() {
             success: 'Contract signed on Solana successfully!',
             error: 'Failed to sign contract on Solana. Please try again.',
           },
-        );
-        return;
+        )
+        return
       } else {
         if (isPartyA)
           txb = await import('@/service/PactdaService').then((m) =>
@@ -548,21 +562,31 @@ function ContractDetail() {
       }
     } else if (action === 'submit-proof-cross-chain') {
       // Explicit cross-chain proof submission action
-      if (typeof milestoneId !== 'number' || !proofInputArg) return;
+      if (typeof milestoneId !== 'number' || !proofInputArg) return
       const crossChainInfo = PactdaService.getCrossChainInfo(contract)
-      if (!crossChainInfo || crossChainInfo.chainId !== 1) return;
-      await solanaService.ensureStubExistsForContract(address || '', contract);
+      if (!crossChainInfo || crossChainInfo.chainId !== 1) return
+      await solanaService.ensureStubExistsForContract(address || '', contract)
       // Not implemented: submitProofCrossChain. Show error for now.
-      toast.error('Cross-chain proof submission is not yet implemented in SolanaService.');
-      return;
-    }  else if (action === 'disputeMilestone') {
+      toast.error(
+        'Cross-chain proof submission is not yet implemented in SolanaService.',
+      )
+      return
+    } else if (action === 'disputeMilestone') {
       if (typeof milestoneId !== 'number' || !proofInputArg) return
       // proofInputArg is dispute reason
       txb = await import('@/service/PactdaService').then((m) =>
-        m.buildInitiateDisputeTx(contract.objectId, milestoneId, proofInputArg, address || '', suiClient)
+        m.buildInitiateDisputeTx(
+          contract.objectId,
+          milestoneId,
+          proofInputArg,
+          address || '',
+          suiClient,
+        ),
       )
       title = 'Confirm Dispute Milestone'
-      content = <div>Are you sure you want to dispute milestone {milestoneId + 1}?</div>
+      content = (
+        <div>Are you sure you want to dispute milestone {milestoneId + 1}?</div>
+      )
       onConfirmed = async () => {
         await resetAndFetchContract()
         toast.success('Milestone disputed!')
@@ -578,7 +602,9 @@ function ContractDetail() {
         contract.escrowId as string,
       )
       title = `Approve & Release Milestone #${milestoneId + 1}`
-      content = <div>Approve and release payment for milestone #{milestoneId + 1}?</div>
+      content = (
+        <div>Approve and release payment for milestone #{milestoneId + 1}?</div>
+      )
       onConfirmed = async () => {
         await resetAndFetchContract()
         toast.success('Milestone approved and payment released!')
@@ -598,19 +624,21 @@ function ContractDetail() {
 
   // Utility to get cross-chain Party B address (for non-Sui wallets)
   function getCrossChainPartyBAddress() {
-    if (!contract || !contract.cross_chain_parties) return null;
+    if (!contract || !contract.cross_chain_parties) return null
     const partyB = Array.isArray(contract.cross_chain_parties)
       ? contract.cross_chain_parties.find((p: any) => {
-          const role = p.fields ? p.fields.role : p.role;
-          return role === 1; // PARTY_ROLE_B
+          const role = p.fields ? p.fields.role : p.role
+          return role === 1 // PARTY_ROLE_B
         })
-      : null;
-    if (!partyB) return null;
-    const addr = partyB.fields ? partyB.fields.party_address : partyB.party_address;
+      : null
+    if (!partyB) return null
+    const addr = partyB.fields
+      ? partyB.fields.party_address
+      : partyB.party_address
     if (Array.isArray(addr)) {
-      return new TextDecoder().decode(Uint8Array.from(addr));
+      return new TextDecoder().decode(Uint8Array.from(addr))
     }
-    return addr;
+    return addr
   }
 
   const milestonesRef = useRef<HTMLDivElement>(null)
@@ -1021,7 +1049,10 @@ function ContractDetail() {
                             // Always decode description_hash to string
                             const descRaw = milestone.fields.description_hash
                             let desc = ''
-                            if (Array.isArray(descRaw) || typeof descRaw === 'string') {
+                            if (
+                              Array.isArray(descRaw) ||
+                              typeof descRaw === 'string'
+                            ) {
                               desc = decodeDescription(descRaw)
                             } else {
                               desc = ''
@@ -1040,7 +1071,9 @@ function ContractDetail() {
                             const statusLabel = getMilestoneStatusLabel(
                               milestone.fields.status,
                             )
-                            const proof = decodeDescription(milestone.fields.proof_reference)
+                            const proof = decodeDescription(
+                              milestone.fields.proof_reference,
+                            )
                             const isPending = milestone.fields.status === 0 // Pending
                             const isSubmitted = milestone.fields.status === 1 // Submitted
                             const canDispute =
@@ -1195,7 +1228,6 @@ function ContractDetail() {
                           ? () => setShowFundModal(true)
                           : undefined
                       }
-
                     />
                     {showRefundEscrowButton && (
                       <button
@@ -1336,13 +1368,15 @@ function ContractDetail() {
       {showDisputeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md shadow-lg border border-red-700/40">
-            <h2 className="text-lg font-semibold text-red-400 mb-2">Dispute Milestone</h2>
+            <h2 className="text-lg font-semibold text-red-400 mb-2">
+              Dispute Milestone
+            </h2>
             <textarea
               className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 mb-4"
               rows={3}
               placeholder="Enter reason for dispute..."
               value={disputeReason}
-              onChange={e => setDisputeReason(e.target.value)}
+              onChange={(e) => setDisputeReason(e.target.value)}
             />
             <div className="flex gap-3 justify-end">
               <button
@@ -1366,9 +1400,9 @@ function ContractDetail() {
   )
 }
 
-const solanaNetwork = WalletAdapterNetwork.Testnet;
-const solanaEndpoint = clusterApiUrl(solanaNetwork);
-const solanaWallets = [new UnsafeBurnerWalletAdapter()];
+const solanaNetwork = WalletAdapterNetwork.Testnet
+const solanaEndpoint = clusterApiUrl(solanaNetwork)
+const solanaWallets = [new UnsafeBurnerWalletAdapter()]
 
 function ContractDetailWithSolanaProvider(props: any) {
   return (
@@ -1379,8 +1413,8 @@ function ContractDetailWithSolanaProvider(props: any) {
         </SolanaWalletModalProvider>
       </SolanaWalletProvider>
     </SolanaConnectionProvider>
-  );
+  )
 }
 
 // Replace the default export
-export default ContractDetailWithSolanaProvider;
+export default ContractDetailWithSolanaProvider

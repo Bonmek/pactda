@@ -938,7 +938,7 @@ export const buildInitiateDisputeTx = async (
   milestoneId: number,
   reason: string,
   sender: string,
-  suiClient: SuiClient
+  suiClient: SuiClient,
 ): Promise<Transaction> => {
   const txb = new Transaction()
   if (sender) txb.setSenderIfNotSet(sender)

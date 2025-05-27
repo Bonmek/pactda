@@ -40,7 +40,7 @@ const UserBalance = () => {
   }, [account?.address, suiClient])
 
   if (!account) {
-    return null 
+    return null
   }
 
   return (

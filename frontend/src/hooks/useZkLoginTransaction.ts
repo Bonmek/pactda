@@ -21,16 +21,16 @@ export const useZkLoginTransaction = () => {
 
       return await signAndExecuteTransactionWithZkLogin(transaction, suiClient)
     },
-    [zkloginAddress, suiClient]
+    [zkloginAddress, suiClient],
   )
 
   return {
     mutateAsync,
     // To maintain compatibility with useSignAndExecuteTransaction from dapp-kit
     mutate: (params: { transaction: Transaction }) => {
-      mutateAsync(params).catch(error => {
+      mutateAsync(params).catch((error) => {
         console.error('Error executing zkLogin transaction:', error)
       })
-    }
+    },
   }
 }

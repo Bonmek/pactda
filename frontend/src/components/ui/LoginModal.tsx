@@ -39,17 +39,22 @@ const LoginModal: React.FC<LoginModalProps> = ({
         exit={{ opacity: 0, scale: 0.9 }}
         className="bg-slate-900 border border-blue-500/30 rounded-xl p-6 max-w-md w-full shadow-xl"
       >
-        <h2 className="text-2xl font-semibold mb-6 text-white">Connect to Continue</h2>
-        
+        <h2 className="text-2xl font-semibold mb-6 text-white">
+          Connect to Continue
+        </h2>
+
         <p className="text-gray-300 mb-6">
-          You need to connect a wallet or log in with a social account to create a contract.
+          You need to connect a wallet or log in with a social account to create
+          a contract.
         </p>
-        
+
         <div className="space-y-4">
           <div>
-            <h3 className="text-md font-medium text-gray-200 mb-2">Social Login</h3>
+            <h3 className="text-md font-medium text-gray-200 mb-2">
+              Social Login
+            </h3>
             <div className="grid grid-cols-2 gap-3">
-              <Button 
+              <Button
                 onClick={() => handleLogin('google')}
                 variant="outline"
                 className="flex items-center justify-center gap-2 border-blue-500/50 hover:bg-blue-500/10"
@@ -78,7 +83,7 @@ const LoginModal: React.FC<LoginModalProps> = ({
                 </svg>
                 Google
               </Button>
-              <Button 
+              <Button
                 onClick={() => handleLogin('facebook')}
                 variant="outline"
                 className="flex items-center justify-center gap-2 border-blue-500/50 hover:bg-blue-500/10"
@@ -94,11 +99,11 @@ const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="mt-8 flex justify-end">
-          <Button 
+          <Button
             onClick={onClose}
-            variant="ghost" 
+            variant="ghost"
             className="text-gray-400 hover:text-gray-300"
           >
             Cancel

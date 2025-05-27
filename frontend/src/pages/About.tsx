@@ -117,8 +117,6 @@ const About: React.FC = () => {
         </motion.h2>
 
         <div className="flex flex-col md:flex-row gap-8 justify-center items-center">
-
-
           <motion.div
             whileHover={{ scale: 1.05 }}
             initial={{ opacity: 0, y: 20 }}
@@ -134,11 +132,13 @@ const About: React.FC = () => {
             >
               Ten
             </motion.div>
-            <div className="text-lg font-bold text-purple-300 mb-1">Tanawat Palaboon</div>
-            <div className="text-gray-400 text-sm">Project Manager/Developer</div>
+            <div className="text-lg font-bold text-purple-300 mb-1">
+              Tanawat Palaboon
+            </div>
+            <div className="text-gray-400 text-sm">
+              Project Manager/Developer
+            </div>
           </motion.div>
-
-
         </div>
       </div>
     </PageLayout>

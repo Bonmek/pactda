@@ -39,7 +39,11 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   // Calculate post-transaction balance if possible
   let postTxnBalance: string | null = null
   let postTxnHighlight: React.ReactNode = null
-  if (currentBalance && estimatedGas && estimatedGas !== "Not available for zkLogin") {
+  if (
+    currentBalance &&
+    estimatedGas &&
+    estimatedGas !== 'Not available for zkLogin'
+  ) {
     const current = parseFloat(currentBalance)
     const gas = parseFloat(estimatedGas)
     if (!isNaN(current) && !isNaN(gas)) {
@@ -166,8 +170,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                   Not available
                 </p>
               )}
-              
-              {!isLoading && estimatedGas === "Not available for zkLogin" && (
+
+              {!isLoading && estimatedGas === 'Not available for zkLogin' && (
                 <p className="text-sm text-indigo-400">
                   Gas estimation not available for zkLogin transactions
                 </p>
@@ -188,8 +192,10 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 disabled={
                   isConfirming ||
                   isLoading ||
-                  (!!gasCalculationError && estimatedGas !== "Not available for zkLogin") ||
-                  (!estimatedGas && estimatedGas !== "Not available for zkLogin")
+                  (!!gasCalculationError &&
+                    estimatedGas !== 'Not available for zkLogin') ||
+                  (!estimatedGas &&
+                    estimatedGas !== 'Not available for zkLogin')
                 }
                 className="bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white"
               >

@@ -5,6 +5,7 @@ This document describes how zkLogin support has been added to the PactDA applica
 ## Overview
 
 The zkLogin implementation allows users to:
+
 1. Log in with Google or Facebook accounts
 2. Create contracts using their zkLogin identity
 3. Sign and interact with contracts
@@ -15,17 +16,20 @@ The zkLogin implementation allows users to:
 ### Core Components
 
 1. **SuiZkLoginService.ts**
+
    - Handles zkLogin authentication with Google/Facebook
    - Manages ephemeral keys and randomness
    - Stores and retrieves zkLogin session data
    - Derives zkLogin addresses
 
 2. **ZkLoginTransactionService.ts**
+
    - Provides functionality to sign and execute transactions with zkLogin
    - Creates zkLogin signatures using the stored credentials
    - Interacts with Mysten Labs' zkLogin prover service
 
 3. **useUnifiedTransaction.ts**
+
    - A React hook that unifies transaction handling for both regular wallets and zkLogin
    - Automatically detects the appropriate signing method
 
@@ -37,6 +41,7 @@ The zkLogin implementation allows users to:
 ### Flow for Contract Creation with zkLogin
 
 1. **Authentication**
+
    - User clicks Google/Facebook zkLogin button in the header
    - User authenticates with the chosen provider
    - A JWT token is obtained and processed by the Callback component
@@ -44,6 +49,7 @@ The zkLogin implementation allows users to:
    - The zkLogin address is stored in session storage
 
 2. **Contract Creation**
+
    - User fills out the contract creation form
    - When submitting, the `buildCreateContractTx` function creates a transaction block
    - The `useUnifiedTransaction` hook detects the user is logged in via zkLogin
@@ -66,10 +72,10 @@ import { buildSignContractAsPartyATx } from '@/service/PactdaService'
 
 function SignContract({ contractId }) {
   const { executeTransaction } = useUnifiedTransaction()
-  
+
   const handleSign = async () => {
     const txb = buildSignContractAsPartyATx(contractId)
-    
+
     try {
       // This will automatically use zkLogin if the user is authenticated that way
       const result = await executeTransaction(txb)
@@ -78,12 +84,8 @@ function SignContract({ contractId }) {
       console.error('Failed to sign contract:', error)
     }
   }
-  
-  return (
-    <button onClick={handleSign}>
-      Sign Contract
-    </button>
-  )
+
+  return <button onClick={handleSign}>Sign Contract</button>
 }
 ```
 
@@ -95,18 +97,18 @@ import { buildCreateContractTx } from '@/service/PactdaService'
 
 function CreateContract() {
   const { executeTransaction } = useUnifiedTransaction()
-  
+
   const handleCreateContract = async () => {
     const txb = buildCreateContractTx(
-      'My Contract Title', 
+      'My Contract Title',
       '0x123...', // Party B address
       1, // Contract type
-      'Terms of the agreement', 
+      'Terms of the agreement',
       Date.now() / 1000, // Start date (timestamp)
-      (Date.now() / 1000) + 2592000, // End date (30 days from now)
-      'Additional metadata'
+      Date.now() / 1000 + 2592000, // End date (30 days from now)
+      'Additional metadata',
     )
-    
+
     try {
       const result = await executeTransaction(txb)
       console.log('Contract created successfully:', result)
@@ -114,12 +116,8 @@ function CreateContract() {
       console.error('Failed to create contract:', error)
     }
   }
-  
-  return (
-    <button onClick={handleCreateContract}>
-      Create Contract
-    </button>
-  )
+
+  return <button onClick={handleCreateContract}>Create Contract</button>
 }
 ```
 

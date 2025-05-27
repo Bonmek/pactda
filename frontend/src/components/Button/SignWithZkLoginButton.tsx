@@ -19,7 +19,7 @@ function SignWithZkLoginButton({
 }: SignWithZkLoginButtonProps) {
   const { executeTransaction } = useUnifiedTransaction()
   const [isLoading, setIsLoading] = useState(false)
-  
+
   const handleClick = () => {
     setIsLoading(true)
     const txb = buildTransaction()

@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import {
-  useSuiClient,
-  useCurrentAccount,
-} from '@mysten/dapp-kit'
+import { useSuiClient, useCurrentAccount } from '@mysten/dapp-kit'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUnifiedTransaction } from '@/hooks/useUnifiedTransaction'
 import ConfirmationModal from '@/components/ui/ConfirmationModal'
@@ -40,10 +37,10 @@ const ContractActionConfirmationModal: React.FC<
   const [gasLoading, setGasLoading] = useState(false)
   const [gasError, setGasError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
-  
+
   // Use zkLogin address if available, otherwise use standard wallet address
   const address = zkloginAddress || currentAccount?.address
-  
+
   // Use our unified transaction executor
   const signAndExecuteTransaction = async (params: { transaction: any }) => {
     return executeTransaction(params.transaction)
@@ -77,12 +74,12 @@ const ContractActionConfirmationModal: React.FC<
       if (zkloginAddress) {
         setGasLoading(false)
         setGasError(null)
-        setEstimatedGas("Not available for zkLogin")
+        setEstimatedGas('Not available for zkLogin')
         return
       }
-      
+
       if (!transactionBlock || !currentAccount?.address) return
-      
+
       setGasLoading(true)
       setGasError(null)
       setEstimatedGas(null)

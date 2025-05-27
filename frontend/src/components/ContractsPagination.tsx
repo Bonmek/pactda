@@ -116,21 +116,34 @@ export default function ContractsPagination({
 
     if (walletType && walletType !== 'sui' && connectedAddress) {
       return allContracts.filter((contract) => {
-        if (!contract.cross_chain_parties || !Array.isArray(contract.cross_chain_parties)) return false
+        if (
+          !contract.cross_chain_parties ||
+          !Array.isArray(contract.cross_chain_parties)
+        )
+          return false
         const partyB = contract.cross_chain_parties.find((p: any) => {
           const role = p.fields ? p.fields.role : p.role
           return role === 1 // PARTY_ROLE_B
         })
         if (!partyB) return false
-        let partyAddress = partyB.fields ? partyB.fields.party_address : partyB.party_address
+        let partyAddress = partyB.fields
+          ? partyB.fields.party_address
+          : partyB.party_address
         if (Array.isArray(partyAddress)) {
           try {
-            const decoded = new TextDecoder().decode(Uint8Array.from(partyAddress))
+            const decoded = new TextDecoder().decode(
+              Uint8Array.from(partyAddress),
+            )
             if (decoded === connectedAddress) return true
           } catch {}
           try {
-            const hex = '0x' + partyAddress.map((b: number) => b.toString(16).padStart(2, '0')).join('')
-            if (hex.toLowerCase() === connectedAddress.toLowerCase()) return true
+            const hex =
+              '0x' +
+              partyAddress
+                .map((b: number) => b.toString(16).padStart(2, '0'))
+                .join('')
+            if (hex.toLowerCase() === connectedAddress.toLowerCase())
+              return true
           } catch {}
         } else if (typeof partyAddress === 'string') {
           if (partyAddress === connectedAddress) return true

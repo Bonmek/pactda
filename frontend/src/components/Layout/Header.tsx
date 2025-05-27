@@ -13,24 +13,31 @@ import { getSuiBalance } from '@/service/PactdaService'
 import { useSuiClient } from '@mysten/dapp-kit'
 import {
   ConnectionProvider as SolanaConnectionProvider,
-  WalletProvider as SolanaWalletProvider
-} from '@solana/wallet-adapter-react';
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
+  WalletProvider as SolanaWalletProvider,
+} from '@solana/wallet-adapter-react'
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base'
+import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets'
 import {
   WalletModalProvider as SolanaWalletModalProvider,
   WalletDisconnectButton as SolanaWalletDisconnectButton,
-  WalletMultiButton as SolanaWalletMultiButton
-} from '@solana/wallet-adapter-react-ui';
-import { clusterApiUrl } from '@solana/web3.js';
-import '@solana/wallet-adapter-react-ui/styles.css';
-import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
+  WalletMultiButton as SolanaWalletMultiButton,
+} from '@solana/wallet-adapter-react-ui'
+import { clusterApiUrl } from '@solana/web3.js'
+import '@solana/wallet-adapter-react-ui/styles.css'
+import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react'
 
 interface HeaderProps {
-  selectedWalletType: 'sui' | 'metamask' | 'okx' | 'solana' | 'google' | 'facebook' | null;
+  selectedWalletType:
+    | 'sui'
+    | 'metamask'
+    | 'okx'
+    | 'solana'
+    | 'google'
+    | 'facebook'
+    | null
   setSelectedWalletType: (
     type: 'sui' | 'metamask' | 'okx' | 'solana' | 'google' | 'facebook' | null,
-  ) => void;
+  ) => void
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -71,8 +78,9 @@ const Header: React.FC<HeaderProps> = ({
     (selectedWalletType === 'sui' && suiAccount) ||
     (selectedWalletType === 'metamask' && isEthConnected) ||
     (selectedWalletType === 'okx' && isEthConnected) ||
-    (selectedWalletType === 'solana') || // Solana wallet adapter context will handle actual connection
-    ((selectedWalletType === 'google' || selectedWalletType === 'facebook') && zkloginAddress)
+    selectedWalletType === 'solana' || // Solana wallet adapter context will handle actual connection
+    ((selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
+      zkloginAddress)
 
   useEffect(() => {
     let cancelled = false
@@ -95,17 +103,25 @@ const Header: React.FC<HeaderProps> = ({
     if (!okxWalletInstance && (window as any).okxwallet) {
       okxWalletInstance = (window as any).okxwallet
     }
-    if (!okxWalletInstance && (window as any).ethereum && (window as any).ethereum.isOkxWallet) {
+    if (
+      !okxWalletInstance &&
+      (window as any).ethereum &&
+      (window as any).ethereum.isOkxWallet
+    ) {
       okxWalletInstance = (window as any).ethereum
     }
     if (!okxWalletInstance) {
-      toast.error('OKX Wallet extension not found. Please ensure it is installed and enabled.')
+      toast.error(
+        'OKX Wallet extension not found. Please ensure it is installed and enabled.',
+      )
       return
     }
     setWalletDropdownOpen(false)
     setSelectedWalletType('okx')
     if (selectedNetwork === 'solana') {
-      toast.error('OKX Wallet does not support Solana. Please use a Solana wallet.')
+      toast.error(
+        'OKX Wallet does not support Solana. Please use a Solana wallet.',
+      )
       setSelectedWalletType(null)
       return
     }
@@ -113,7 +129,9 @@ const Header: React.FC<HeaderProps> = ({
       (c) => c.id === 'okx' || c.name.toLowerCase().includes('okx'),
     )
     if (!okxConnector) {
-      toast.error('OKX Wallet connector not found in wagmi. Please check your wagmi config.')
+      toast.error(
+        'OKX Wallet connector not found in wagmi. Please check your wagmi config.',
+      )
       setSelectedWalletType(null)
       return
     }
@@ -179,7 +197,10 @@ const Header: React.FC<HeaderProps> = ({
   const getConnectedAddress = () => {
     if (selectedWalletType === 'sui' && suiAccount) {
       return suiAccount.address
-    } else if ((selectedWalletType === 'metamask' || selectedWalletType === 'okx') && ethAddress) {
+    } else if (
+      (selectedWalletType === 'metamask' || selectedWalletType === 'okx') &&
+      ethAddress
+    ) {
       return ethAddress
     } else if (
       (selectedWalletType === 'google' || selectedWalletType === 'facebook') &&
@@ -222,7 +243,8 @@ const Header: React.FC<HeaderProps> = ({
     function handleClickOutside(event: MouseEvent) {
       const modal = document.querySelector('.wallet-adapter-modal-wrapper')
       if (
-        (dropdownRef.current && dropdownRef.current.contains(event.target as Node)) ||
+        (dropdownRef.current &&
+          dropdownRef.current.contains(event.target as Node)) ||
         (modal && modal.contains(event.target as Node))
       ) {
         // Click inside dropdown or Solana modal: do nothing
@@ -280,21 +302,28 @@ const Header: React.FC<HeaderProps> = ({
   }
 
   // Solana wallet context setup
-  const solanaNetwork = WalletAdapterNetwork.Testnet;
-  const solanaEndpoint = React.useMemo(() => clusterApiUrl(solanaNetwork), [solanaNetwork]);
-  const solanaWallets = React.useMemo(() => [
-    new UnsafeBurnerWalletAdapter(),
-  ], [solanaNetwork]);
+  const solanaNetwork = WalletAdapterNetwork.Testnet
+  const solanaEndpoint = React.useMemo(
+    () => clusterApiUrl(solanaNetwork),
+    [solanaNetwork],
+  )
+  const solanaWallets = React.useMemo(
+    () => [new UnsafeBurnerWalletAdapter()],
+    [solanaNetwork],
+  )
 
-  const isEthereumSelected = selectedNetwork === 'ethereum';
-  const isSolanaSelected = selectedNetwork === 'solana';
+  const isEthereumSelected = selectedNetwork === 'ethereum'
+  const isSolanaSelected = selectedNetwork === 'solana'
 
   return (
     <>
       {/* Solana connection state syncer */}
       <SolanaConnectionProvider endpoint={solanaEndpoint}>
         <SolanaWalletProvider wallets={solanaWallets} autoConnect>
-          <SolanaConnectionUpdater selectedWalletType={selectedWalletType} setSelectedWalletType={setSelectedWalletType} />
+          <SolanaConnectionUpdater
+            selectedWalletType={selectedWalletType}
+            setSelectedWalletType={setSelectedWalletType}
+          />
         </SolanaWalletProvider>
       </SolanaConnectionProvider>
       <div
@@ -612,13 +641,21 @@ const Header: React.FC<HeaderProps> = ({
                 <SolanaConnectionProvider endpoint={solanaEndpoint}>
                   <SolanaWalletProvider wallets={solanaWallets} autoConnect>
                     <SolanaWalletModalProvider>
-                      <SolanaWalletMultiButton className="wallet-btn w-full md:w-auto px-2 md:px-4 py-2 rounded-md border text-sm md:text-base font-medium shadow-md transition-all duration-200 overflow-hidden mb-0" style={{ minHeight: '40px' }} />
+                      <SolanaWalletMultiButton
+                        className="wallet-btn w-full md:w-auto px-2 md:px-4 py-2 rounded-md border text-sm md:text-base font-medium shadow-md transition-all duration-200 overflow-hidden mb-0"
+                        style={{ minHeight: '40px' }}
+                      />
                     </SolanaWalletModalProvider>
                   </SolanaWalletProvider>
                 </SolanaConnectionProvider>
               ) : (
                 <button
-                  disabled={isLoading || ((selectedWalletType === 'google' || selectedWalletType === 'facebook') && isLoading)}
+                  disabled={
+                    isLoading ||
+                    ((selectedWalletType === 'google' ||
+                      selectedWalletType === 'facebook') &&
+                      isLoading)
+                  }
                   onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
                   className={`wallet-btn relative flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 rounded-md border text-sm md:text-base ${
                     isWalletConnected || isLoading
@@ -717,16 +754,27 @@ const Header: React.FC<HeaderProps> = ({
                   {isWalletConnected ? (
                     <div className="p-4 relative z-10">
                       <div className="mb-4">
-                        <p className="text-sm text-indigo-400 mb-1">Connected</p>
+                        <p className="text-sm text-indigo-400 mb-1">
+                          Connected
+                        </p>
                         <div className="p-2 bg-gray-800/70 rounded border border-indigo-500/20 font-mono text-xs break-all">
                           {/* Show address for Sui, OKX (Ethereum), Solana, or zkLogin */}
-                          {selectedWalletType === 'sui' && suiAccount && suiAccount.address}
-                          {selectedWalletType === 'okx' && ethAddress && ethAddress}
-                          {(selectedWalletType === 'google' || selectedWalletType === 'facebook') && zkloginAddress}
+                          {selectedWalletType === 'sui' &&
+                            suiAccount &&
+                            suiAccount.address}
+                          {selectedWalletType === 'okx' &&
+                            ethAddress &&
+                            ethAddress}
+                          {(selectedWalletType === 'google' ||
+                            selectedWalletType === 'facebook') &&
+                            zkloginAddress}
                           {/* Solana connected address */}
                           {selectedWalletType === 'solana' && (
                             <SolanaConnectionProvider endpoint={solanaEndpoint}>
-                              <SolanaWalletProvider wallets={solanaWallets} autoConnect>
+                              <SolanaWalletProvider
+                                wallets={solanaWallets}
+                                autoConnect
+                              >
                                 <SolanaWalletModalProvider>
                                   <SolanaWalletAddressDisplay />
                                 </SolanaWalletModalProvider>
@@ -738,7 +786,10 @@ const Header: React.FC<HeaderProps> = ({
                       {/* Disconnect button for all wallet types */}
                       {selectedWalletType === 'solana' ? (
                         <SolanaConnectionProvider endpoint={solanaEndpoint}>
-                          <SolanaWalletProvider wallets={solanaWallets} autoConnect>
+                          <SolanaWalletProvider
+                            wallets={solanaWallets}
+                            autoConnect
+                          >
                             <SolanaWalletModalProvider>
                               <SolanaWalletDisconnectButton className="w-full text-left px-4 py-2 bg-red-700/80 hover:bg-red-800 text-white rounded flex items-center justify-center gap-2 font-semibold transition-all duration-200 border border-red-500/30" />
                             </SolanaWalletModalProvider>
@@ -775,7 +826,14 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectSui}
                         className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-blue-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1 text-sm md:text-base"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <circle cx="12" cy="12" r="10"></circle>
                           <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
                           <line x1="9" y1="9" x2="9.01" y2="9"></line>
@@ -810,9 +868,15 @@ const Header: React.FC<HeaderProps> = ({
                       {selectedNetwork === 'solana' && (
                         <div style={{ position: 'relative', zIndex: 9999 }}>
                           <SolanaConnectionProvider endpoint={solanaEndpoint}>
-                            <SolanaWalletProvider wallets={solanaWallets} autoConnect>
+                            <SolanaWalletProvider
+                              wallets={solanaWallets}
+                              autoConnect
+                            >
                               <SolanaWalletModalProvider>
-                                <SolanaWalletMultiButton className="w-full mb-2 text-sm md:text-base" style={{ zIndex: 9999 }} />
+                                <SolanaWalletMultiButton
+                                  className="w-full mb-2 text-sm md:text-base"
+                                  style={{ zIndex: 9999 }}
+                                />
                               </SolanaWalletModalProvider>
                             </SolanaWalletProvider>
                           </SolanaConnectionProvider>
@@ -824,11 +888,52 @@ const Header: React.FC<HeaderProps> = ({
                           onClick={handleConnectOKX}
                           className="w-full text-left px-4 py-2 hover:bg-indigo-600/20 text-orange-300 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1 text-sm md:text-base"
                         >
-                          <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
-                            <rect x="2" y="2" width="12" height="12" rx="3" fill="#181A20" stroke="#FFA500" strokeWidth="2"/>
-                            <rect x="18" y="2" width="12" height="12" rx="3" fill="#181A20" stroke="#FFA500" strokeWidth="2"/>
-                            <rect x="2" y="18" width="12" height="12" rx="3" fill="#181A20" stroke="#FFA500" strokeWidth="2"/>
-                            <rect x="18" y="18" width="12" height="12" rx="3" fill="#181A20" stroke="#FFA500" strokeWidth="2"/>
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 32 32"
+                            fill="none"
+                          >
+                            <rect
+                              x="2"
+                              y="2"
+                              width="12"
+                              height="12"
+                              rx="3"
+                              fill="#181A20"
+                              stroke="#FFA500"
+                              strokeWidth="2"
+                            />
+                            <rect
+                              x="18"
+                              y="2"
+                              width="12"
+                              height="12"
+                              rx="3"
+                              fill="#181A20"
+                              stroke="#FFA500"
+                              strokeWidth="2"
+                            />
+                            <rect
+                              x="2"
+                              y="18"
+                              width="12"
+                              height="12"
+                              rx="3"
+                              fill="#181A20"
+                              stroke="#FFA500"
+                              strokeWidth="2"
+                            />
+                            <rect
+                              x="18"
+                              y="18"
+                              width="12"
+                              height="12"
+                              rx="3"
+                              fill="#181A20"
+                              stroke="#FFA500"
+                              strokeWidth="2"
+                            />
                           </svg>
                           OKX Wallet
                         </button>
@@ -838,8 +943,16 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectGoogle}
                         className="w-full text-left px-4 py-2 hover:bg-blue-600/20 text-blue-200 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1 text-sm md:text-base"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                          <path d="M21.35 11.1H12.18v2.92h5.27c-.23 1.22-1.4 3.58-5.27 3.58-3.18 0-5.78-2.63-5.78-5.86s2.6-5.86 5.78-5.86c1.81 0 3.03.77 3.73 1.43l2.55-2.48C17.09 3.6 14.86 2.5 12.18 2.5 6.7 2.5 2.5 6.7 2.5 12.18s4.2 9.68 9.68 9.68c5.59 0 9.27-3.92 9.27-9.45 0-.64-.07-1.13-.16-1.61z" fill="#4285F4"/>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M21.35 11.1H12.18v2.92h5.27c-.23 1.22-1.4 3.58-5.27 3.58-3.18 0-5.78-2.63-5.78-5.86s2.6-5.86 5.78-5.86c1.81 0 3.03.77 3.73 1.43l2.55-2.48C17.09 3.6 14.86 2.5 12.18 2.5 6.7 2.5 2.5 6.7 2.5 12.18s4.2 9.68 9.68 9.68c5.59 0 9.27-3.92 9.27-9.45 0-.64-.07-1.13-.16-1.61z"
+                            fill="#4285F4"
+                          />
                         </svg>
                         Google zkLogin
                       </button>
@@ -848,8 +961,16 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={handleConnectFacebook}
                         className="w-full text-left px-4 py-2 hover:bg-pink-600/20 text-pink-200 rounded flex items-center gap-2 font-semibold transition-all duration-200 my-1 text-sm md:text-base"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                          <path d="M22.675 0h-21.35C.6 0 0 .6 0 1.326v21.348C0 23.4.6 24 1.326 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.797.143v3.24l-1.92.001c-1.504 0-1.797.715-1.797 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116C23.4 24 24 23.4 24 22.674V1.326C24 .6 23.4 0 22.675 0" fill="#F472B6"/>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M22.675 0h-21.35C.6 0 0 .6 0 1.326v21.348C0 23.4.6 24 1.326 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.797.143v3.24l-1.92.001c-1.504 0-1.797.715-1.797 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116C23.4 24 24 23.4 24 22.674V1.326C24 .6 23.4 0 22.675 0"
+                            fill="#F472B6"
+                          />
                         </svg>
                         Facebook zkLogin
                       </button>
@@ -867,24 +988,39 @@ const Header: React.FC<HeaderProps> = ({
 
 // SolanaWalletAddressDisplay component for showing Solana address (with short prop)
 function SolanaWalletAddressDisplay({ short }: { short?: boolean } = {}) {
-  const { publicKey } = useSolanaWallet();
-  if (!publicKey) return null;
-  const base58 = publicKey.toBase58();
-  if (short) return <>{base58.slice(0, 2)}..{base58.slice(-2)}</>;
-  return <>{base58.slice(0, 6)}...{base58.slice(-4)}</>;
+  const { publicKey } = useSolanaWallet()
+  if (!publicKey) return null
+  const base58 = publicKey.toBase58()
+  if (short)
+    return (
+      <>
+        {base58.slice(0, 2)}..{base58.slice(-2)}
+      </>
+    )
+  return (
+    <>
+      {base58.slice(0, 6)}...{base58.slice(-4)}
+    </>
+  )
 }
 
 // SolanaConnectionUpdater: keeps selectedWalletType in sync with Solana wallet connection state
-function SolanaConnectionUpdater({ selectedWalletType, setSelectedWalletType }: { selectedWalletType: string | null, setSelectedWalletType: (t: any) => void }) {
-  const { publicKey, connected } = useSolanaWallet();
+function SolanaConnectionUpdater({
+  selectedWalletType,
+  setSelectedWalletType,
+}: {
+  selectedWalletType: string | null
+  setSelectedWalletType: (t: any) => void
+}) {
+  const { publicKey, connected } = useSolanaWallet()
   useEffect(() => {
     if (connected && publicKey && selectedWalletType !== 'solana') {
-      setSelectedWalletType('solana');
+      setSelectedWalletType('solana')
     } else if (!connected && selectedWalletType === 'solana') {
-      setSelectedWalletType(null);
+      setSelectedWalletType(null)
     }
-  }, [connected, publicKey, selectedWalletType, setSelectedWalletType]);
-  return null;
+  }, [connected, publicKey, selectedWalletType, setSelectedWalletType])
+  return null
 }
 
 export default Header

@@ -180,7 +180,7 @@ export class SolanaService {
   public async createSponsoredStub(
     userPublicKeyStr: string,
     contract: PactDaContract,
-    stubId?: number
+    stubId?: number,
   ): Promise<{ signature: string; solanaStubId: number }> {
     if (!this.sponsorKeypair) {
       throw new Error(
@@ -515,7 +515,6 @@ export class SolanaService {
     // 1. Get Solana stub info (stubId)
     // Inline logic from PactdaService.getCrossChainInfo
 
-
     const getCrossChainParties = (contract: any) => {
       if (!contract.cross_chain_parties) return []
       return contract.cross_chain_parties as any[]
@@ -545,53 +544,87 @@ export class SolanaService {
       throw new Error('Invalid Solana public key for Party B')
     }
 
-
     // --- Step 1: Always use the sponsor keypair from env as the stub initiator ---
     if (!this.sponsorKeypair) {
-      this.initializeSponsor();
+      this.initializeSponsor()
     }
     if (!this.sponsorKeypair) {
-      throw new Error('Sponsor keypair not loaded. Please set VITE_SOLANA_SPONSOR_PRIVATE_KEY in your .env')
+      throw new Error(
+        'Sponsor keypair not loaded. Please set VITE_SOLANA_SPONSOR_PRIVATE_KEY in your .env',
+      )
     }
-    const initiatorPublicKey = this.sponsorKeypair.publicKey;
-    console.log('[signContractCrossChain] Using sponsor keypair as stub initiator:', initiatorPublicKey.toBase58())
+    const initiatorPublicKey = this.sponsorKeypair.publicKey
+    console.log(
+      '[signContractCrossChain] Using sponsor keypair as stub initiator:',
+      initiatorPublicKey.toBase58(),
+    )
     const stubIdBuffer = new Uint8Array(8)
-    new DataView(stubIdBuffer.buffer).setBigUint64(0, BigInt(solanaStubId), true)
+    new DataView(stubIdBuffer.buffer).setBigUint64(
+      0,
+      BigInt(solanaStubId),
+      true,
+    )
     const seeds = [
       new TextEncoder().encode('pactda_stub_v1'),
       initiatorPublicKey.toBytes(),
       stubIdBuffer,
     ]
     const [stubPda] = PublicKey.findProgramAddressSync(seeds, PACTDA_PROGRAM_ID)
-    console.log('[signContractCrossChain] Derived stub PDA:', stubPda.toBase58())
+    console.log(
+      '[signContractCrossChain] Derived stub PDA:',
+      stubPda.toBase58(),
+    )
 
     // Fetch the stub account to verify existence and log
     const stubAccountInfo = await this.connection.getAccountInfo(stubPda)
     if (!stubAccountInfo) {
-      console.error('[signContractCrossChain] Stub account not found for PDA:', stubPda.toBase58())
-      throw new Error('Stub account not found on Solana. Make sure the stub is created and the stubId/initiatorPublicKey are correct.')
+      console.error(
+        '[signContractCrossChain] Stub account not found for PDA:',
+        stubPda.toBase58(),
+      )
+      throw new Error(
+        'Stub account not found on Solana. Make sure the stub is created and the stubId/initiatorPublicKey are correct.',
+      )
     }
-    console.log('[signContractCrossChain] Stub account found, data length:', stubAccountInfo.data.length)
+    console.log(
+      '[signContractCrossChain] Stub account found, data length:',
+      stubAccountInfo.data.length,
+    )
 
     // --- Step 2: Prepare the payload (Party B's pubkey + role) ---
     const signPayload = new Uint8Array(33)
     signPayload.set(userPublicKey.toBytes(), 0)
     signPayload[32] = 1 // Party B role (1)
-    console.log('[signContractCrossChain] signPayload (hex):', Buffer.from(signPayload).toString('hex'))
-    console.log('[signContractCrossChain] signPayload (base58):', bs58.encode(signPayload))
-    console.log('[signContractCrossChain] userPublicKey:', userPublicKey.toBase58())
+    console.log(
+      '[signContractCrossChain] signPayload (hex):',
+      Buffer.from(signPayload).toString('hex'),
+    )
+    console.log(
+      '[signContractCrossChain] signPayload (base58):',
+      bs58.encode(signPayload),
+    )
+    console.log(
+      '[signContractCrossChain] userPublicKey:',
+      userPublicKey.toBase58(),
+    )
     console.log('[signContractCrossChain] Party B role:', 1)
 
     // --- Step 3: Prepare the Sui bridge address as bytes (from .env) ---
-    let suiBridgeAddressHex = import.meta.env.VITE_WORMHOLE_BRIDGE_ADDRESS_SUI || ''
+    let suiBridgeAddressHex =
+      import.meta.env.VITE_WORMHOLE_BRIDGE_ADDRESS_SUI || ''
     suiBridgeAddressHex = suiBridgeAddressHex.replace(/^0x/, '')
     if (suiBridgeAddressHex.length !== 64) {
-      throw new Error('VITE_WORMHOLE_BRIDGE_ADDRESS_SUI must be a 32-byte hex string')
+      throw new Error(
+        'VITE_WORMHOLE_BRIDGE_ADDRESS_SUI must be a 32-byte hex string',
+      )
     }
     const suiBridgeAddressBytes = new Uint8Array(
       suiBridgeAddressHex.match(/.{2}/g)!.map((b: string) => parseInt(b, 16)),
     )
-    console.log('[signContractCrossChain] suiBridgeAddressBytes:', Buffer.from(suiBridgeAddressBytes).toString('hex'))
+    console.log(
+      '[signContractCrossChain] suiBridgeAddressBytes:',
+      Buffer.from(suiBridgeAddressBytes).toString('hex'),
+    )
 
     // --- Step 4: Build the instruction data for request_action_on_sui ---
     const discriminator = [15, 25, 61, 246, 52, 213, 60, 61]
@@ -603,7 +636,10 @@ export class SolanaService {
     new DataView(data.buffer).setUint32(17, payloadLen, true)
     data.set(signPayload, 21)
     data.set(suiBridgeAddressBytes, 54)
-    console.log('[signContractCrossChain] instruction data:', Buffer.from(data).toString('hex'))
+    console.log(
+      '[signContractCrossChain] instruction data:',
+      Buffer.from(data).toString('hex'),
+    )
 
     // --- Step 5: Build and send the transaction ---
     // The signer must be the sponsor keypair
@@ -613,7 +649,9 @@ export class SolanaService {
       throw new Error('No Solana wallet connected')
     }
     if (!solWallet.publicKey.equals(initiatorPublicKey)) {
-      throw new Error('The connected Solana wallet must be the sponsor (the account that created the stub)')
+      throw new Error(
+        'The connected Solana wallet must be the sponsor (the account that created the stub)',
+      )
     }
     const instruction = new TransactionInstruction({
       programId: PACTDA_PROGRAM_ID,
@@ -627,7 +665,10 @@ export class SolanaService {
     tx.feePayer = solWallet.publicKey
     tx.recentBlockhash = (await this.connection.getLatestBlockhash()).blockhash
     if (tx.feePayer) {
-      console.log('[signContractCrossChain] Transaction built, feePayer:', tx.feePayer.toBase58())
+      console.log(
+        '[signContractCrossChain] Transaction built, feePayer:',
+        tx.feePayer.toBase58(),
+      )
     }
     // Sign and send
     const signed = await solWallet.signTransaction(tx)
@@ -643,13 +684,15 @@ export class SolanaService {
    */
   public async ensureStubExistsForContract(
     userPublicKeyStr: string,
-    contract: PactDaContract
+    contract: PactDaContract,
   ): Promise<{ stubPda: PublicKey; solanaStubId: number; signature?: string }> {
     if (!this.sponsorKeypair) {
-      this.initializeSponsor();
+      this.initializeSponsor()
     }
     if (!this.sponsorKeypair) {
-      throw new Error('Sponsor keypair not loaded. Please set VITE_SOLANA_SPONSOR_PRIVATE_KEY in your .env')
+      throw new Error(
+        'Sponsor keypair not loaded. Please set VITE_SOLANA_SPONSOR_PRIVATE_KEY in your .env',
+      )
     }
     // Derive stubId as in signContractCrossChain
     const contractIdBytes = new TextEncoder().encode(contract.objectId)
@@ -660,7 +703,11 @@ export class SolanaService {
     const solanaStubId = Math.abs(hash) % 1000000
     const initiatorPublicKey = this.sponsorKeypair.publicKey
     const stubIdBuffer = new Uint8Array(8)
-    new DataView(stubIdBuffer.buffer).setBigUint64(0, BigInt(solanaStubId), true)
+    new DataView(stubIdBuffer.buffer).setBigUint64(
+      0,
+      BigInt(solanaStubId),
+      true,
+    )
     const seeds = [
       new TextEncoder().encode('pactda_stub_v1'),
       initiatorPublicKey.toBytes(),
@@ -669,12 +716,22 @@ export class SolanaService {
     const [stubPda] = PublicKey.findProgramAddressSync(seeds, PACTDA_PROGRAM_ID)
     const stubAccountInfo = await this.connection.getAccountInfo(stubPda)
     if (stubAccountInfo) {
-      console.log('[ensureStubExistsForContract] Stub already exists at PDA:', stubPda.toBase58())
+      console.log(
+        '[ensureStubExistsForContract] Stub already exists at PDA:',
+        stubPda.toBase58(),
+      )
       return { stubPda, solanaStubId }
     }
     // Create the stub
-    console.log('[ensureStubExistsForContract] Stub not found, creating at PDA:', stubPda.toBase58())
-    const { signature } = await this.createSponsoredStub(userPublicKeyStr, contract, solanaStubId)
+    console.log(
+      '[ensureStubExistsForContract] Stub not found, creating at PDA:',
+      stubPda.toBase58(),
+    )
+    const { signature } = await this.createSponsoredStub(
+      userPublicKeyStr,
+      contract,
+      solanaStubId,
+    )
     // Wait for the stub to appear (optional: poll for a few seconds)
     let retries = 5
     let found = false
@@ -684,10 +741,12 @@ export class SolanaService {
         found = true
         break
       }
-      await new Promise(res => setTimeout(res, 1000))
+      await new Promise((res) => setTimeout(res, 1000))
     }
     if (!found) {
-      throw new Error('Stub creation transaction sent but account not found after waiting.')
+      throw new Error(
+        'Stub creation transaction sent but account not found after waiting.',
+      )
     }
     return { stubPda, solanaStubId, signature }
   }
