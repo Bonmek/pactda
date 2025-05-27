@@ -116,27 +116,8 @@ const About: React.FC = () => {
           Meet the Team
         </motion.h2>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="bg-gray-900 bg-opacity-70 rounded-xl p-6 shadow-lg flex flex-col items-center border border-blue-900 border-opacity-20 relative overflow-hidden"
-          >
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-            <motion.div
-              whileHover={{ rotate: 10, scale: 1.1 }}
-              transition={{ type: 'spring', stiffness: 300 }}
-              className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center text-3xl font-bold text-white mb-3 shadow-lg"
-            >
-              A
-            </motion.div>
-            <div className="text-lg font-bold text-blue-300 mb-1">Alice</div>
-            <div className="text-gray-400 text-sm">
-              Lead Smart Contract Engineer
-            </div>
-          </motion.div>
+        <div className="flex flex-col md:flex-row gap-8 justify-center items-center">
+
 
           <motion.div
             whileHover={{ scale: 1.05 }}
@@ -151,30 +132,13 @@ const About: React.FC = () => {
               transition={{ type: 'spring', stiffness: 300 }}
               className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center text-3xl font-bold text-white mb-3 shadow-lg"
             >
-              B
+              Ten
             </motion.div>
-            <div className="text-lg font-bold text-purple-300 mb-1">Bob</div>
-            <div className="text-gray-400 text-sm">Full Stack Developer</div>
+            <div className="text-lg font-bold text-purple-300 mb-1">Tanawat Palaboon</div>
+            <div className="text-gray-400 text-sm">Project Manager/Developer</div>
           </motion.div>
 
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="bg-gray-900 bg-opacity-70 rounded-xl p-6 shadow-lg flex flex-col items-center border border-pink-900 border-opacity-20 relative overflow-hidden"
-          >
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-pink-600 to-blue-600 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-            <motion.div
-              whileHover={{ rotate: 10, scale: 1.1 }}
-              transition={{ type: 'spring', stiffness: 300 }}
-              className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center text-3xl font-bold text-white mb-3 shadow-lg"
-            >
-              C
-            </motion.div>
-            <div className="text-lg font-bold text-pink-300 mb-1">Carol</div>
-            <div className="text-gray-400 text-sm">Blockchain Auditor</div>
-          </motion.div>
+
         </div>
       </div>
     </PageLayout>

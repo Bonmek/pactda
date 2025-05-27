@@ -12,10 +12,12 @@ import MilestoneList from './MilestoneList'
 import { Milestone, OnChainMilestone } from '@/types/milestone'
 import {
   useCurrentAccount,
-  useSignAndExecuteTransaction,
   useSuiClient,
 } from '@mysten/dapp-kit'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import { useUnifiedTransaction } from '@/hooks/useUnifiedTransaction'
+import LoginModal from '@/components/ui/LoginModal'
 import {
   buildCreateContractTx,
   buildCreateContractCrossChainTx,
@@ -158,9 +160,17 @@ const ContractForm: React.FC<ContractFormProps> = ({
   const suiClient = useSuiClient()
   const currentAccount = useCurrentAccount()
   const address = currentAccount?.address
-  const { mutateAsync: signAndExecuteTransaction } =
-    useSignAndExecuteTransaction()
+  const { executeTransaction } = useUnifiedTransaction()
+  const { zkloginAddress } = useAuth()
   const navigate = useNavigate()
+  
+  // Use zkLogin address if available, otherwise use Sui wallet address
+  const userAddress = zkloginAddress || address
+  
+  // Our unified transaction executor will handle both zkLogin and standard wallet transactions
+  const signAndExecuteTransaction = async (params: { transaction: any }) => {
+    return executeTransaction(params.transaction)
+  }
   const [loading, setLoading] = useState(false)
   const [title, setTitle] = useState<string | undefined>(initialValues.title) // String
   const [suiPartyBAddress, setSuiPartyBAddress] = useState<string | undefined>(
@@ -207,7 +217,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
 
     if (title && title.length > 3) completed.push('title')
     if (contractType !== undefined) completed.push('type')
-    if (address && (suiPartyBAddress || suiPartyBAddress === ''))
+    if (userAddress && (suiPartyBAddress || suiPartyBAddress === ''))
       completed.push('parties')
     if (termsReference || (startDate && endDate)) completed.push('terms')
     completed.push('payment')
@@ -230,7 +240,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
       endDate !== undefined ||
       metadata !== undefined ||
       milestones.length > 0 ||
-      address !== undefined
+      userAddress !== undefined
 
     if (shouldUpdate) {
       updateCompletedSteps()
@@ -380,11 +390,21 @@ const ContractForm: React.FC<ContractFormProps> = ({
     onConfirmed: () => {},
     content: null,
   })
+  
+  // Login modal state
+  const [loginModalOpen, setLoginModalOpen] = useState(false)
 
   const handleSubmit = async () => {
     try {
-      if (!currentAccount) {
-        toast.error('Please connect your Sui wallet.')
+      // Check if either Sui wallet or zkLogin is connected
+      if (!userAddress) {
+        setLoginModalOpen(true)
+        return
+      }
+      
+      // Double-check authentication after modal is closed (safety check)
+      if (!userAddress) {
+        toast.error('Please connect a wallet or login with Google/Facebook to create a contract.')
         return
       }
       if (!title || title.trim().length < 3) {
@@ -584,7 +604,9 @@ const ContractForm: React.FC<ContractFormProps> = ({
             cleanMetadata,
           )
         }
-        if (address) txb.setSenderIfNotSet(address)
+        if (userAddress) {
+          txb.setSenderIfNotSet(userAddress)
+        }
         setActionModal({
           open: true,
           txb,
@@ -598,6 +620,14 @@ const ContractForm: React.FC<ContractFormProps> = ({
               {title && (
                 <p>
                   <span className="font-semibold">Title:</span> {title}
+                </p>
+              )}
+              {suiPartyBAddress && (
+                <p>
+                  <span className="font-semibold">Party B Address:</span> {suiPartyBAddress}{' '}
+                  {partyBBlockchain !== 'Sui' && (
+                    <span className="ml-1 text-blue-400">[{partyBBlockchain}]</span>
+                  )}
                 </p>
               )}
               {milestones && milestones.length > 0 && (
@@ -719,28 +749,30 @@ const ContractForm: React.FC<ContractFormProps> = ({
           const buildUpdateContractTx = (
             await import('@/service/PactdaService')
           ).buildUpdateContractTx
-            const chainId =
+          const chainId =
             CHAIN_IDS[partyBBlockchain] ||
             Number(import.meta.env.VITE_CHAIN_ID_SUI)
-            let addressBytes: number[] = []
-            if (partyBBlockchain === 'Solana') {
-              addressBytes = Array.from(
-                new TextEncoder().encode(suiPartyBAddress || ''),
-              )
-            } else {
-              addressBytes = suiPartyBAddress
-                ? Array.from(
-                    (suiPartyBAddress.slice(2).match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16)),
-                  )
-                : []
-            }
-            let partyBCrossChain = ''
-            if (addressBytes.length > 0) {
-              partyBCrossChain = addressBytes
-                .map((b) => b.toString(16).padStart(2, '0'))
-                .join('')
-            }
-            console.log('partyBCrossChain', partyBCrossChain)
+          let addressBytes: number[] = []
+          if (partyBBlockchain === 'Solana') {
+            addressBytes = Array.from(
+              new TextEncoder().encode(suiPartyBAddress || ''),
+            )
+          } else {
+            addressBytes = suiPartyBAddress
+              ? Array.from(
+                  (suiPartyBAddress.slice(2).match(/.{1,2}/g) || []).map(
+                    (byte) => parseInt(byte, 16),
+                  ),
+                )
+              : []
+          }
+          let partyBCrossChain = ''
+          if (addressBytes.length > 0) {
+            partyBCrossChain = addressBytes
+              .map((b) => b.toString(16).padStart(2, '0'))
+              .join('')
+          }
+          console.log('partyBCrossChain', partyBCrossChain)
           const txb = await buildUpdateContractTx(contractId, {
             chainId,
             suiPartyBAddress,
@@ -762,6 +794,19 @@ const ContractForm: React.FC<ContractFormProps> = ({
                   changes). Please review the estimated transaction fee below
                   before confirming.
                 </p>
+                {suiPartyBAddress && (
+                  <p>
+                    <span className="font-semibold">Party B Address:</span> {suiPartyBAddress}{' '}
+                    {partyBBlockchain !== 'Sui' && (
+                      <span className="ml-1 text-blue-400">[{partyBBlockchain}]</span>
+                    )}
+                  </p>
+                )}
+                {contractType !== undefined && (
+                  <p>
+                    <span className="font-semibold">Contract Type:</span> {contractType}
+                  </p>
+                )}
               </div>
             ),
             onConfirmed: async (result: any) => {
@@ -816,7 +861,9 @@ const ContractForm: React.FC<ContractFormProps> = ({
             } else {
               addressBytes = suiPartyBAddress
                 ? Array.from(
-                    (suiPartyBAddress.slice(2).match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16)),
+                    (suiPartyBAddress.slice(2).match(/.{1,2}/g) || []).map(
+                      (byte) => parseInt(byte, 16),
+                    ),
                   )
                 : []
             }
@@ -836,7 +883,10 @@ const ContractForm: React.FC<ContractFormProps> = ({
               partyBCrossChain,
             })
           }
-          if (address) updateTxb.setSenderIfNotSet(address)
+          // Set the transaction sender to the user's address (either zkLogin or wallet)
+          if (userAddress) {
+            updateTxb.setSenderIfNotSet(userAddress)
+          }
           setActionModal({
             open: true,
             txb: updateTxb,
@@ -850,6 +900,14 @@ const ContractForm: React.FC<ContractFormProps> = ({
                 {title && (
                   <p>
                     <span className="font-semibold">Title:</span> {title}
+                  </p>
+                )}
+                {suiPartyBAddress && (
+                  <p>
+                    <span className="font-semibold">Party B Address:</span> {suiPartyBAddress}{' '}
+                    {partyBBlockchain !== 'Sui' && (
+                      <span className="ml-1 text-blue-400">[{partyBBlockchain}]</span>
+                    )}
                   </p>
                 )}
                 {milestones && milestones.length > 0 && (
@@ -1232,6 +1290,16 @@ const ContractForm: React.FC<ContractFormProps> = ({
           Smart Contract Agreement
         </span>
       </motion.h1>
+      
+      {/* Connection status indicator */}
+      <motion.div
+        className="flex justify-center mb-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+      >
+
+      </motion.div>
       {/* Progress bar and step indicators */}
       <div className="sticky top-0 z-50 bg-gray-900/90 backdrop-blur-md py-3 mb-8 rounded-lg border border-blue-500/20 shadow-lg">
         <div className="mb-2 flex justify-between items-center px-4">
@@ -1250,7 +1318,7 @@ const ContractForm: React.FC<ContractFormProps> = ({
           ></div>
         </div>
         {/* Step indicators (no numbers, only show required for title) */}
-        <div className="flex justify-between mt-4 px-4 overflow-x-auto pb-2 hide-scrollbar">
+        <div className="flex justify-between mt-4 px-4 overflow-x-auto pb-2 hide-scrollbar">f
           {formSteps.map((step) => (
             <div
               key={step.id}
@@ -1738,6 +1806,16 @@ const ContractForm: React.FC<ContractFormProps> = ({
       >
         {actionModal.content}
       </ContractActionConfirmationModal>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        onLoginSuccess={() => {
+          setLoginModalOpen(false)
+          setTimeout(() => handleSubmit(), 500)
+        }}
+      />
     </div>
   )
 }

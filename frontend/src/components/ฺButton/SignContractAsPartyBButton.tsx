@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { buildSignContractAsPartyBTx } from '@/service/PactdaService'
 import { useSignAndExecuteTransaction } from '@mysten/dapp-kit'
+import { useAuth } from '@/contexts/AuthContext'
+import { useZkLoginTransaction } from '@/hooks/useZkLoginTransaction'
 
 type SignContractAsPartyBButtonProps = {
   contractId: string
@@ -11,9 +13,16 @@ function SignContractAsPartyBButton({
   contractId,
   OnExecuted,
 }: SignContractAsPartyBButtonProps) {
-  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction()
+  const { mutate: standardSignAndExecuteTransaction } = useSignAndExecuteTransaction()
+  const { mutate: zkLoginSignAndExecuteTransaction } = useZkLoginTransaction()
+  const { zkloginAddress } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const chain = import.meta.env.VITE_SUI_CHAIN
+  
+  // Choose the appropriate signing method
+  const signAndExecuteTransaction = zkloginAddress 
+    ? zkLoginSignAndExecuteTransaction
+    : standardSignAndExecuteTransaction
   const handleClick = () => {
     setIsLoading(true)
     const txb = buildSignContractAsPartyBTx(contractId)

@@ -14,7 +14,6 @@ import ContractStatusBadge, {
 } from '@/components/ContractDetail/ContractStatusBadge'
 import { SuiEvent } from '@mysten/sui.js/client'
 import { Dialog } from '@headlessui/react' // For modal
-import { TransactionBlock } from '@mysten/sui.js/transactions'
 import FundEscrowModal from './FundEscrowModal'
 import ContractActionConfirmationModal from '@/components/ui/ContractActionConfirmationModal'
 import { useContractActions, useWalletBalance } from './contractActions'
@@ -26,6 +25,13 @@ import {
   getMilestoneStatusLabel,
 } from '@/utils/milestone'
 import { OnChainMilestone } from '@/types/milestone'
+import { useWallet } from '@solana/wallet-adapter-react'; // Correct hook for Solana wallet
+import { solanaService } from '@/service/SolanaService'; // Import the singleton
+import { ConnectionProvider as SolanaConnectionProvider, WalletProvider as SolanaWalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider as SolanaWalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { clusterApiUrl } from '@solana/web3.js';
 
 const agreementTypes = [
   { key: 'General', value: 0 },
@@ -35,7 +41,7 @@ const agreementTypes = [
   { key: 'Service', value: 4 },
 ]
 
-export default function ContractDetail() {
+function ContractDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [contract, setContract] = useState<PactDaContract | null>(null)
@@ -50,6 +56,7 @@ export default function ContractDetail() {
   const suiAccount = useCurrentAccount()
   const address = suiAccount?.address
   const walletBalance = useWalletBalance(address, suiClient)
+  const solanaWallet = useWallet(); // Get Solana wallet context
 
   const {
     handleSignContract,
@@ -85,9 +92,10 @@ export default function ContractDetail() {
     content: null,
   })
 
-  // Add state for proof modal
   const [showProofModal, setShowProofModal] = useState(false)
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(null)
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<number | null>(
+    null,
+  )
   const [proofInput, setProofInput] = useState('')
   const [submittingProof, setSubmittingProof] = useState(false)
 
@@ -102,7 +110,34 @@ export default function ContractDetail() {
     setShowProofModal(false)
     setProofInput('')
     setSelectedMilestoneId(null)
-    await handleAction('submitProof', undefined, selectedMilestoneId, proofInput)
+    await handleAction(
+      'submitProof',
+      undefined,
+      selectedMilestoneId,
+      proofInput,
+    )
+  }
+  
+  // Add state for dispute modal
+  const [showDisputeModal, setShowDisputeModal] = useState(false)
+  const [disputeReason, setDisputeReason] = useState('')
+  const [disputeMilestoneId, setDisputeMilestoneId] = useState<number | null>(null)
+  const [submittingDispute, setSubmittingDispute] = useState(false)
+
+  function handleOpenDisputeModal(milestoneId: number) {
+    setDisputeMilestoneId(milestoneId)
+    setDisputeReason('')
+    setShowDisputeModal(true)
+  }
+
+  async function handleSubmitDispute() {
+    if (disputeMilestoneId === null || !disputeReason || !contract) return
+    setSubmittingDispute(true)
+    setShowDisputeModal(false)
+    await handleAction('disputeMilestone', undefined, disputeMilestoneId, disputeReason)
+    setSubmittingDispute(false)
+    setDisputeReason('')
+    setDisputeMilestoneId(null)
   }
 
   // Fetch contract details
@@ -212,21 +247,48 @@ export default function ContractDetail() {
     }
   }, [contract, suiClient])
 
-  const formatDate = (timestampMs?: string | number | null): string => {
-    if (!timestampMs) return 'Date N/A'
-    const numericTimestamp =
-      typeof timestampMs === 'string' ? parseInt(timestampMs, 10) : timestampMs
-    if (isNaN(numericTimestamp)) return 'Invalid Date'
+  const formatDate = (dateValue?: string | number | null): string => {
+    if (!dateValue) return 'Date N/A'
+    let date: Date
+    if (typeof dateValue === 'string') {
+      // Try to parse as ISO string
+      date = new Date(dateValue)
+      if (isNaN(date.getTime())) {
+        // Fallback: try as timestamp (seconds)
+        const asNum = parseInt(dateValue, 10)
+        if (!isNaN(asNum)) {
+          // If value is 10 digits, treat as seconds, else ms
+          date = new Date(asNum < 1e12 ? asNum * 1000 : asNum)
+        }
+      }
+    } else if (typeof dateValue === 'number') {
+      // If value is 10 digits, treat as seconds, else ms
+      date = new Date(dateValue < 1e12 ? dateValue * 1000 : dateValue)
+    } else {
+      date = new Date(dateValue)
+    }
+    if (isNaN(date.getTime()) || date.getFullYear() === 1970) return '-'
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  }
 
-    const date = new Date(numericTimestamp)
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(date)
+  const isValidDate = (dateValue?: string | number | null): boolean => {
+    if (!dateValue) return false
+    let date: Date
+    if (typeof dateValue === 'string') {
+      date = new Date(dateValue)
+      if (isNaN(date.getTime())) {
+        const asNum = parseInt(dateValue, 10)
+        if (!isNaN(asNum)) {
+          date = new Date(asNum < 1e12 ? asNum * 1000 : asNum)
+        }
+      }
+    } else if (typeof dateValue === 'number') {
+      date = new Date(dateValue < 1e12 ? dateValue * 1000 : dateValue)
+    } else {
+      date = new Date(dateValue)
+    }
+    return !isNaN(date.getTime()) && date.getFullYear() !== 1970
   }
 
   const getAgreementType = (value: number): string => {
@@ -240,17 +302,29 @@ export default function ContractDetail() {
     await fetchContract(true)
   }
 
-  // Check if this is a cross-chain contract
-  const isCrossChain = contract ? PactdaService.isCrossChainContract(contract) : false
-  const crossChainInfo = contract ? PactdaService.getCrossChainInfo(contract) : null
-  const showCreateSolanaStubButton = isCrossChain && crossChainInfo && crossChainInfo.chainId === 1 // 1 = Solana
+  const isCrossChain = contract
+    ? PactdaService.isCrossChainContract(contract)
+    : false
+  const crossChainInfo = contract
+    ? PactdaService.getCrossChainInfo(contract)
+    : null
   const handleAction = async (
-    action: 'sign' | 'submit' | 'fund' | 'refund' | 'submitProof' | 'approveMilestone' | 'create-solana-stub',
+    action:
+      | 'sign'
+      | 'submit'
+      | 'fund'
+      | 'refund'
+      | 'submitProof'
+      | 'approveMilestone'
+      | 'create-solana-stub'
+      | 'sign-cross-chain'
+      | 'submit-proof-cross-chain'
+      | 'disputeMilestone',
     fundAmount?: string,
     milestoneId?: number,
     proofInputArg?: string,
   ) => {
-    if (!contract || !address) return
+    if (!contract || (!address && !solanaWallet?.publicKey)) return
     let txb: any = null
     let title = ''
     let content: React.ReactNode = null
@@ -280,51 +354,121 @@ export default function ContractDetail() {
         )
         return
       }
+      // If cross-chain Solana, create stub automatically before submit
+      const isCrossChain = PactdaService.isCrossChainContract(contract)
+      const crossChainInfo = PactdaService.getCrossChainInfo(contract)
+      if (isCrossChain && crossChainInfo && crossChainInfo.chainId === 1) {
+        try {
+          await PactdaService.createSolanaStub(contract, address)
+        } catch (e) {
+          toast.error('Failed to create Solana stub. Please try again.')
+          return
+        }
+      }
       txb = await import('@/service/PactdaService').then((m) =>
         m.buildSubmitContractTx(contract.objectId),
       )
       title = 'Confirm Submit Contract'
       content = <div>Submit contract for review?</div>
-        onConfirmed = async () => {
+      onConfirmed = async () => {
         await resetAndFetchContract()
         toast.success('Contract submitted!')
       }
     } else if (action === 'create-solana-stub') {
-      // Dedicated action for creating Solana stub
       const isCrossChain = PactdaService.isCrossChainContract(contract)
       const crossChainInfo = PactdaService.getCrossChainInfo(contract)
-      
+
       if (!isCrossChain || !crossChainInfo) {
         toast.error('This is not a cross-chain contract')
         return
       }
-      
-      toast.promise(
-        PactdaService.createSolanaStub(contract),
-        {
-          loading: 'Creating Solana stub...',
-          success: 'Solana stub created successfully!',
-          error: 'Failed to create Solana stub. Please try again.'
-        }
-      )
+      toast.promise(PactdaService.createSolanaStub(contract, address), {
+        loading: 'Creating Solana stub...',
+        success: 'Solana stub created successfully!',
+        error: 'Failed to create Solana stub. Please try again.',
+      })
       return
     } else if (action === 'sign') {
-      const isPartyA = address === contract.partyA
-      const isPartyB = address === contract.partyB
-      if (isPartyA)
-        txb = await import('@/service/PactdaService').then((m) =>
-          m.buildSignContractAsPartyATx(contract.objectId),
-        )
-      else if (isPartyB)
-        txb = await import('@/service/PactdaService').then((m) =>
-          m.buildSignContractAsPartyBTx(contract.objectId),
-        )
-      title = 'Confirm Sign Contract'
-      content = <div>Sign contract as {isPartyA ? 'Party A' : 'Party B'}?</div>
-      onConfirmed = async () => {
-        await resetAndFetchContract()
-        toast.success('Contract signed!')
+      const isPartyA = address === contract.partyA;
+      let isPartyB = address === contract.partyB;
+      const isCrossChain = PactdaService.isCrossChainContract(contract);
+      const crossChainInfo = PactdaService.getCrossChainInfo(contract);
+      // --- Cross-chain Party B detection for non-Sui wallets ---
+      let crossChainPartyBAddress = getCrossChainPartyBAddress();
+      let isCrossChainPartyB = false;
+      if (
+        isCrossChain &&
+        crossChainInfo &&
+        crossChainInfo.chainId === 1 &&
+        !address && // Not Sui wallet
+        solanaWallet?.publicKey &&
+        crossChainPartyBAddress &&
+        solanaWallet.publicKey.toBase58() === crossChainPartyBAddress
+      ) {
+        isCrossChainPartyB = true;
       }
+      // ---
+      if (
+        (isCrossChain && crossChainInfo && crossChainInfo.chainId === 1 && isPartyB) ||
+        isCrossChainPartyB
+      ) {
+        // Cross-chain Party B signing from Solana
+        const solanaPubkey = solanaWallet?.publicKey?.toBase58() || crossChainPartyBAddress;
+        if (!solanaPubkey || !solanaWallet?.publicKey) {
+          toast.error('No Solana wallet connected.');
+          return;
+        }
+        await solanaService.ensureStubExistsForContract(solanaPubkey, contract);
+        toast.promise(
+          solanaService.signContractCrossChain(solanaPubkey, contract, {
+            publicKey: solanaWallet.publicKey,
+            signTransaction: solanaWallet.signTransaction,
+          }),
+          {
+            loading: 'Signing contract on Solana...',
+            success: 'Contract signed on Solana successfully!',
+            error: 'Failed to sign contract on Solana. Please try again.',
+          },
+        );
+        return;
+      } else {
+        if (isPartyA)
+          txb = await import('@/service/PactdaService').then((m) =>
+            m.buildSignContractAsPartyATx(contract.objectId),
+          )
+        else if (isPartyB)
+          txb = await import('@/service/PactdaService').then((m) =>
+            m.buildSignContractAsPartyBTx(contract.objectId),
+          )
+        title = 'Confirm Sign Contract'
+        content = (
+          <div>Sign contract as {isPartyA ? 'Party A' : 'Party B'}?</div>
+        )
+        onConfirmed = async () => {
+          await resetAndFetchContract()
+          toast.success('Contract signed!')
+        }
+      }
+    } else if (action === 'sign-cross-chain') {
+      const crossChainInfo = PactdaService.getCrossChainInfo(contract)
+      if (!crossChainInfo || crossChainInfo.chainId !== 1) {
+        toast.error(
+          'This action is only available for Solana cross-chain contracts',
+        )
+        return
+      }
+
+      toast.promise(
+        import('@/service/SolanaService').then((m) =>
+          m.solanaService.signContractCrossChain(address || '', contract),
+        ),
+        {
+          loading: 'Signing contract on Solana...',
+          success: 'Contract signed on Solana successfully!',
+          error: 'Failed to sign contract on Solana. Please try again.',
+        },
+      )
+      return
     } else if (action === 'fund') {
       if (!fundAmount) return
       const amount = BigInt(Math.floor(Number(fundAmount) * 1e9))
@@ -332,9 +476,9 @@ export default function ContractDetail() {
         m.buildFundEscrowTx(
           contract.objectId,
           amount,
-          address,
+          address || '',
           suiClient,
-          address,
+          address || '',
         ),
       )
       title = 'Confirm Fund Escrow'
@@ -350,8 +494,8 @@ export default function ContractDetail() {
       txb = await import('@/service/PactdaService').then((m) =>
         m.buildRefundEscrowTx(
           contract.objectId,
-          contract.escrowId as string,
-          address,
+          (contract.escrowId as string) || '', // Fix: always pass string
+          address || '',
         ),
       )
       title = 'Confirm Refund Escrow'
@@ -368,76 +512,76 @@ export default function ContractDetail() {
       escrowAction = 'refund'
     } else if (action === 'submitProof') {
       if (typeof milestoneId !== 'number' || !proofInputArg) return
-      txb = await PactdaService.buildSubmitProofTx(contract.objectId, milestoneId, proofInputArg)
-      title = `Submit Proof for Milestone #${milestoneId + 1}`
-      content = <div>Submit proof for milestone #{milestoneId + 1}?</div>
-      onConfirmed = async () => {
-        await resetAndFetchContract()
-        toast.success('Proof submitted!')
-      }
-    } else if (action === 'approveMilestone') {
-      if (typeof milestoneId !== 'number' || !contract || !contract.escrowId) return
-      const paymentRecordId = await PactdaService.hasMilestonePaymentRecord(contract.objectId, contract.partyA, suiClient)
-      if (!paymentRecordId) {
-        txb = await PactdaService.buildCreateMilestonePaymentRecordTx(contract.objectId, contract.escrowId)
-        title = `Create Payment Record for Milestone #${milestoneId + 1}`
-        content = (
-          <div>
-            <p>A payment record must be created before releasing milestone payment.</p>
-            <p>Click confirm to create the payment record. After this transaction succeeds, you can release the payment.</p>
-          </div>
+
+      const isCrossChain = PactdaService.isCrossChainContract(contract)
+      const crossChainInfo = PactdaService.getCrossChainInfo(contract)
+
+      if (isCrossChain && crossChainInfo && crossChainInfo.chainId === 1) {
+        toast.promise(
+          import('@/service/SolanaService').then((m) =>
+            m.solanaService.submitProofCrossChain(
+              address || '',
+              contract,
+              milestoneId,
+              proofInputArg,
+            ),
+          ),
+          {
+            loading: 'Submitting proof via Solana...',
+            success: 'Proof submitted via Solana successfully!',
+            error: 'Failed to submit proof via Solana. Please try again.',
+          },
         )
-        onConfirmed = async () => {
-          await resetAndFetchContract()
-          toast.success('Payment record created!')
-          const newRecordId = await PactdaService.hasMilestonePaymentRecord(contract.objectId, contract.escrowId, suiClient)
-          if (newRecordId) {
-            // Open Approve & Release modal automatically
-            const releaseTxb = await PactdaService.buildReleaseMilestonePaymentTx(contract.objectId, contract.escrowId, milestoneId, newRecordId)
-            setActionModal({
-              open: true,
-              txb: releaseTxb,
-              title: `Approve & Release Milestone #${milestoneId + 1}`,
-              onConfirmed: async () => {
-                await resetAndFetchContract()
-                toast.success('Milestone approved and payment released!')
-              },
-              content: <div>Approve and release payment for milestone #{milestoneId + 1}?</div>,
-              escrowAmount,
-              escrowAction,
-            })
-          } else {
-            toast.info('Payment record created. You can now release the milestone payment.')
-          }
-        }
-        setActionModal({
-          open: true,
-          txb,
-          title,
-          onConfirmed,
-          content,
-          escrowAmount,
-          escrowAction,
-        })
         return
       } else {
-        txb = await PactdaService.buildReleaseMilestonePaymentTx(contract.objectId, contract.escrowId, milestoneId, paymentRecordId)
-        title = `Approve & Release Milestone #${milestoneId + 1}`
-        content = <div>Approve and release payment for milestone #{milestoneId + 1}?</div>
+        txb = await PactdaService.buildSubmitProofTx(
+          contract.objectId,
+          milestoneId,
+          proofInputArg,
+        )
+        title = `Submit Proof for Milestone #${milestoneId + 1}`
+        content = <div>Submit proof for milestone #{milestoneId + 1}?</div>
         onConfirmed = async () => {
           await resetAndFetchContract()
-          toast.success('Milestone approved and payment released!')
+          toast.success('Proof submitted!')
         }
-        setActionModal({
-          open: true,
-          txb,
-          title,
-          onConfirmed,
-          content,
-          escrowAmount,
-          escrowAction,
-        })
+      }
+    } else if (action === 'submit-proof-cross-chain') {
+      // Explicit cross-chain proof submission action
+      if (typeof milestoneId !== 'number' || !proofInputArg) return;
+      const crossChainInfo = PactdaService.getCrossChainInfo(contract)
+      if (!crossChainInfo || crossChainInfo.chainId !== 1) return;
+      await solanaService.ensureStubExistsForContract(address || '', contract);
+      // Not implemented: submitProofCrossChain. Show error for now.
+      toast.error('Cross-chain proof submission is not yet implemented in SolanaService.');
+      return;
+    }  else if (action === 'disputeMilestone') {
+      if (typeof milestoneId !== 'number' || !proofInputArg) return
+      // proofInputArg is dispute reason
+      txb = await import('@/service/PactdaService').then((m) =>
+        m.buildInitiateDisputeTx(contract.objectId, milestoneId, proofInputArg, address || '', suiClient)
+      )
+      title = 'Confirm Dispute Milestone'
+      content = <div>Are you sure you want to dispute milestone {milestoneId + 1}?</div>
+      onConfirmed = async () => {
+        await resetAndFetchContract()
+        toast.success('Milestone disputed!')
+      }
+    } else if (action === 'approveMilestone') {
+      if (typeof milestoneId !== 'number') return
+      if (!contract.escrowId) {
+        toast.error('No escrow found for this contract.')
         return
+      }
+      txb = await PactdaService.buildReleasePaymentTx(
+        contract.objectId,
+        contract.escrowId as string,
+      )
+      title = `Approve & Release Milestone #${milestoneId + 1}`
+      content = <div>Approve and release payment for milestone #{milestoneId + 1}?</div>
+      onConfirmed = async () => {
+        await resetAndFetchContract()
+        toast.success('Milestone approved and payment released!')
       }
     }
 
@@ -452,11 +596,31 @@ export default function ContractDetail() {
     })
   }
 
+  // Utility to get cross-chain Party B address (for non-Sui wallets)
+  function getCrossChainPartyBAddress() {
+    if (!contract || !contract.cross_chain_parties) return null;
+    const partyB = Array.isArray(contract.cross_chain_parties)
+      ? contract.cross_chain_parties.find((p: any) => {
+          const role = p.fields ? p.fields.role : p.role;
+          return role === 1; // PARTY_ROLE_B
+        })
+      : null;
+    if (!partyB) return null;
+    const addr = partyB.fields ? partyB.fields.party_address : partyB.party_address;
+    if (Array.isArray(addr)) {
+      return new TextDecoder().decode(Uint8Array.from(addr));
+    }
+    return addr;
+  }
+
   const milestonesRef = useRef<HTMLDivElement>(null)
 
   function handleScrollToMilestones() {
     if (milestonesRef.current) {
-      milestonesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      milestonesRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
     }
   }
 
@@ -473,18 +637,18 @@ export default function ContractDetail() {
     <div className="min-h-screen text-white p-4 md:p-8 justify-center flex-col">
       <button
         onClick={() => navigate('/dashboard')}
-        className="mb-6 text-blue-400 hover:text-blue-300 transition cursor-pointer"
+        className="mb-6 text-blue-400 hover:text-blue-300 transition cursor-pointer hover:underline"
       >
         ← Back to contracts
       </button>
-      <div className="flex flex-col items-center w-full">
+      <div className="flex flex-col items-center w-full cursor-default">
         <motion.div
           className="w-full max-w-6xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Card className="rounded-3xl shadow-2xl bg-gradient-to-br from-[#232946] via-[#1a1a2e] to-[#0f3460] border border-indigo-700/40 backdrop-blur-xl">
+          <Card className="rounded-3xl shadow-2xl bg-gradient-to-br from-[#232946] via-[#1a1a2e] to-[#0f3460] border border-indigo-700/40 backdrop-blur-xl cursor-pointer hover:shadow-indigo-500/30 transition-shadow">
             <CardContent className="p-2 md:p-4 lg:p-8 md:-mt-8">
               <motion.h1
                 className="text-3xl md:text-5xl font-extralight tracking-tight px-2 md:px-4 py-4 pt-0 text-center mb-2 md:mb-8"
@@ -497,27 +661,43 @@ export default function ContractDetail() {
                 </span>
               </motion.h1>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 px-2 md:px-8 mb-8">
-                <div className="space-y-4">                  {/* Mobile Status Badge */}
+                <div className="space-y-4">
+                  {' '}
+                  {/* Mobile Status Badge */}
                   <div className="flex flex-col items-center justify-start gap-4 md:hidden">
                     <ContractStatusBadge
                       status={contract.status as StatusKey}
                     />
                     {/* Cross-chain indicator for mobile */}
-                    {PactdaService.isCrossChainContract(contract) && (
+                    {PactdaService.isCrossChainContract(contract) &&
                       (() => {
-                        const crossChainInfo = PactdaService.getCrossChainInfo(contract)
+                        const crossChainInfo =
+                          PactdaService.getCrossChainInfo(contract)
                         if (crossChainInfo) {
                           const CHAIN_IDS = {
-                            Sui: Number(import.meta.env.VITE_CHAIN_ID_SUI) || 21,
-                            Solana: Number(import.meta.env.VITE_CHAIN_ID_SOLANA) || 1,
-                            Ethereum: Number(import.meta.env.VITE_CHAIN_ID_ETHEREUM) || 2,
-                            Polygon: Number(import.meta.env.VITE_CHAIN_ID_POLYGON) || 5,
-                            Avalanche: Number(import.meta.env.VITE_CHAIN_ID_AVALANCHE) || 6,
+                            Sui:
+                              Number(import.meta.env.VITE_CHAIN_ID_SUI) || 21,
+                            Solana:
+                              Number(import.meta.env.VITE_CHAIN_ID_SOLANA) || 1,
+                            Ethereum:
+                              Number(import.meta.env.VITE_CHAIN_ID_ETHEREUM) ||
+                              2,
+                            Polygon:
+                              Number(import.meta.env.VITE_CHAIN_ID_POLYGON) ||
+                              5,
+                            Avalanche:
+                              Number(import.meta.env.VITE_CHAIN_ID_AVALANCHE) ||
+                              6,
                           }
-                          const chainName = (Object.keys(CHAIN_IDS) as Array<keyof typeof CHAIN_IDS>).find(
-                            (key) => CHAIN_IDS[key] == crossChainInfo.chainId
-                          ) || `Chain ${crossChainInfo.chainId}`
-                          
+                          const chainName =
+                            (
+                              Object.keys(CHAIN_IDS) as Array<
+                                keyof typeof CHAIN_IDS
+                              >
+                            ).find(
+                              (key) => CHAIN_IDS[key] == crossChainInfo.chainId,
+                            ) || `Chain ${crossChainInfo.chainId}`
+
                           return (
                             <div className="px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white border border-purple-400/30 shadow-md">
                               🌐 Cross-Chain ({chainName})
@@ -525,8 +705,7 @@ export default function ContractDetail() {
                           )
                         }
                         return null
-                      })()
-                    )}
+                      })()}
                   </div>
                   <div className="flex items-center gap-3 text-lg text-indigo-300/80">
                     <span className="font-semibold text-indigo-400/90">
@@ -545,7 +724,7 @@ export default function ContractDetail() {
                         Start:
                       </span>
                       <span className="font-light text-white/90">
-                        {contract.contractStartDate
+                        {isValidDate(contract.contractStartDate)
                           ? formatDate(contract.contractStartDate)
                           : '-'}
                       </span>
@@ -555,7 +734,7 @@ export default function ContractDetail() {
                         Deadline:
                       </span>
                       <span className="font-light text-white/90">
-                        {contract.contractDeadlineDate
+                        {isValidDate(contract.contractDeadlineDate)
                           ? formatDate(contract.contractDeadlineDate)
                           : '-'}
                       </span>
@@ -573,7 +752,7 @@ export default function ContractDetail() {
                     address === contract.partyA && (
                       <div className="w-full md:w-50">
                         <button
-                          className="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl px-6 py-2 text-base font-semibold shadow-lg transition mb-2 mt-4 pulse-effect"
+                          className="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-600 hover:from-indigo-600 hover:to-fuchsia-700 text-white rounded-xl px-6 py-2 text-base font-semibold shadow-lg transition mb-2 mt-4 pulse-effect cursor-pointer hover:scale-105"
                           onClick={() =>
                             navigate(`/contract/${contract.objectId}/edit`)
                           }
@@ -582,26 +761,38 @@ export default function ContractDetail() {
                         </button>
                       </div>
                     )}
-                </div>                {/* Desktop Status Badge */}
+                </div>{' '}
+                {/* Desktop Status Badge */}
                 <div className="hidden md:flex flex-col items-end justify-start gap-4">
                   <ContractStatusBadge status={contract.status as StatusKey} />
                   {/* Cross-chain indicator */}
-                  {PactdaService.isCrossChainContract(contract) && (
+                  {PactdaService.isCrossChainContract(contract) &&
                     (() => {
-                      const crossChainInfo = PactdaService.getCrossChainInfo(contract)
+                      const crossChainInfo =
+                        PactdaService.getCrossChainInfo(contract)
                       if (crossChainInfo) {
                         // Try to map chain_id to chain name
                         const CHAIN_IDS = {
                           Sui: Number(import.meta.env.VITE_CHAIN_ID_SUI) || 21,
-                          Solana: Number(import.meta.env.VITE_CHAIN_ID_SOLANA) || 1,
-                          Ethereum: Number(import.meta.env.VITE_CHAIN_ID_ETHEREUM) || 2,
-                          Polygon: Number(import.meta.env.VITE_CHAIN_ID_POLYGON) || 5,
-                          Avalanche: Number(import.meta.env.VITE_CHAIN_ID_AVALANCHE) || 6,
+                          Solana:
+                            Number(import.meta.env.VITE_CHAIN_ID_SOLANA) || 1,
+                          Ethereum:
+                            Number(import.meta.env.VITE_CHAIN_ID_ETHEREUM) || 2,
+                          Polygon:
+                            Number(import.meta.env.VITE_CHAIN_ID_POLYGON) || 5,
+                          Avalanche:
+                            Number(import.meta.env.VITE_CHAIN_ID_AVALANCHE) ||
+                            6,
                         }
-                        const chainName = (Object.keys(CHAIN_IDS) as Array<keyof typeof CHAIN_IDS>).find(
-                          (key) => CHAIN_IDS[key] == crossChainInfo.chainId
-                        ) || `Chain ${crossChainInfo.chainId}`
-                        
+                        const chainName =
+                          (
+                            Object.keys(CHAIN_IDS) as Array<
+                              keyof typeof CHAIN_IDS
+                            >
+                          ).find(
+                            (key) => CHAIN_IDS[key] == crossChainInfo.chainId,
+                          ) || `Chain ${crossChainInfo.chainId}`
+
                         return (
                           <div className="px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white border border-purple-400/30 shadow-md">
                             🌐 Cross-Chain ({chainName})
@@ -609,12 +800,11 @@ export default function ContractDetail() {
                         )
                       }
                       return null
-                    })()
-                  )}
+                    })()}
                 </div>
               </div>
-
-              {/* Responsive ActionsCard: show at top on mobile, right column on desktop */}              {/* Mobile: ActionsCard at top */}
+              {/* Responsive ActionsCard: show at top on mobile, right column on desktop */}{' '}
+              {/* Mobile: ActionsCard at top */}
               <div className="block md:hidden mb-6">
                 <div className="rounded-2xl bg-gradient-to-br from-indigo-800/40 to-fuchsia-800/10 p-4 shadow-lg border border-indigo-700/20 flex flex-col gap-4">
                   <ActionsCard
@@ -631,11 +821,7 @@ export default function ContractDetail() {
                         ? () => setShowFundModal(true)
                         : undefined
                     }
-                    onCreateSolanaStub={
-                      showCreateSolanaStubButton
-                        ? () => handleAction('create-solana-stub')
-                        : undefined
-                    }
+                    // onCreateSolanaStub removed: stub creation is now automatic with submit
                   />
                   {showRefundEscrowButton && (
                     <button
@@ -656,7 +842,6 @@ export default function ContractDetail() {
                   )}
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-[60%_40%] gap-8 p-2 md:p-4">
                 <motion.div
                   initial={{ x: -50, opacity: 0 }}
@@ -679,36 +864,70 @@ export default function ContractDetail() {
                         <span className="block text-indigo-300/80 font-semibold mb-1">
                           Party B
                         </span>
-                        {contract.cross_chain_parties && Array.isArray(contract.cross_chain_parties) && contract.cross_chain_parties.length > 0 ? (
+                        {contract.cross_chain_parties &&
+                        Array.isArray(contract.cross_chain_parties) &&
+                        contract.cross_chain_parties.length > 0 ? (
                           (() => {
-                            const partyBInfo = contract.cross_chain_parties[0]?.fields;
+                            const partyBInfo =
+                              contract.cross_chain_parties[0]?.fields
                             if (partyBInfo) {
                               // Try to map chain_id to chain name
                               const CHAIN_IDS = {
-                                Sui: Number(import.meta.env.VITE_CHAIN_ID_SUI) || 1,
-                                Solana: Number(import.meta.env.VITE_CHAIN_ID_SOLANA) || 1,
-                                Ethereum: Number(import.meta.env.VITE_CHAIN_ID_ETHEREUM) || 2,
-                                Polygon: Number(import.meta.env.VITE_CHAIN_ID_POLYGON) || 5,
-                                Avalanche: Number(import.meta.env.VITE_CHAIN_ID_AVALANCHE) || 6,
-                              };
+                                Sui:
+                                  Number(import.meta.env.VITE_CHAIN_ID_SUI) ||
+                                  1,
+                                Solana:
+                                  Number(
+                                    import.meta.env.VITE_CHAIN_ID_SOLANA,
+                                  ) || 1,
+                                Ethereum:
+                                  Number(
+                                    import.meta.env.VITE_CHAIN_ID_ETHEREUM,
+                                  ) || 2,
+                                Polygon:
+                                  Number(
+                                    import.meta.env.VITE_CHAIN_ID_POLYGON,
+                                  ) || 5,
+                                Avalanche:
+                                  Number(
+                                    import.meta.env.VITE_CHAIN_ID_AVALANCHE,
+                                  ) || 6,
+                              }
                               // Fix: use keyof typeof CHAIN_IDS for type safety
-                              const chainName = (Object.keys(CHAIN_IDS) as Array<keyof typeof CHAIN_IDS>).find(
-                                (key) => CHAIN_IDS[key] == partyBInfo.chain_id
-                              ) || `Chain ID ${partyBInfo.chain_id}`;
+                              const chainName =
+                                (
+                                  Object.keys(CHAIN_IDS) as Array<
+                                    keyof typeof CHAIN_IDS
+                                  >
+                                ).find(
+                                  (key) =>
+                                    CHAIN_IDS[key] == partyBInfo.chain_id,
+                                ) || `Chain ID ${partyBInfo.chain_id}`
                               // Decode address (stored as bytes/array)
-                              let address = '';
+                              let address = ''
                               if (Array.isArray(partyBInfo.party_address)) {
-                                address = new TextDecoder().decode(Uint8Array.from(partyBInfo.party_address));
-                              } else if (typeof partyBInfo.party_address === 'string') {
-                                address = partyBInfo.party_address;
+                                address = new TextDecoder().decode(
+                                  Uint8Array.from(partyBInfo.party_address),
+                                )
+                              } else if (
+                                typeof partyBInfo.party_address === 'string'
+                              ) {
+                                address = partyBInfo.party_address
                               }
                               return (
                                 <span className="block font-mono text-white/90 text-base break-all">
-                                  {address} <span className="text-indigo-400/80 ml-2">[{chainName}]</span>
+                                  {address}{' '}
+                                  <span className="text-indigo-400/80 ml-2">
+                                    [{chainName}]
+                                  </span>
                                 </span>
-                              );
+                              )
                             }
-                            return <span className="block font-mono text-white/90 text-base break-all">-</span>;
+                            return (
+                              <span className="block font-mono text-white/90 text-base break-all">
+                                -
+                              </span>
+                            )
                           })()
                         ) : (
                           <span className="block font-mono text-white/90 text-base break-all">
@@ -787,7 +1006,10 @@ export default function ContractDetail() {
                   )}
 
                   {/* Milestones */}
-                  <div ref={milestonesRef} className="rounded-2xl bg-gradient-to-br from-emerald-900/30 to-emerald-700/10 p-6 shadow-lg border border-emerald-700/20">
+                  <div
+                    ref={milestonesRef}
+                    className="rounded-2xl bg-gradient-to-br from-emerald-900/30 to-emerald-700/10 p-6 shadow-lg border border-emerald-700/20"
+                  >
                     <span className="block text-emerald-300/80 font-semibold mb-1">
                       Milestones
                     </span>
@@ -796,25 +1018,34 @@ export default function ContractDetail() {
                       <ul className="list-disc list-inside text-white/90 text-base space-y-2">
                         {contract.milestones.map(
                           (milestone: any, idx: number) => {
-                            // Assume on-chain milestone structure
+                            // Always decode description_hash to string
                             const descRaw = milestone.fields.description_hash
-                            // decode if bytes, else use as string
-                            const desc = Array.isArray(descRaw)
-                              ? decodeDescription(descRaw)
-                              : typeof descRaw === 'string'
-                                ? descRaw
-                                : ''
+                            let desc = ''
+                            if (Array.isArray(descRaw) || typeof descRaw === 'string') {
+                              desc = decodeDescription(descRaw)
+                            } else {
+                              desc = ''
+                            }
                             let value = milestone.fields.value
                             let valueSUI =
-                              value !== undefined && value !== null && value !== '' && !isNaN(Number(value))
-                                ? (Number(value) / 1e9).toLocaleString(undefined, { maximumFractionDigits: 4 })
+                              value !== undefined &&
+                              value !== null &&
+                              value !== '' &&
+                              !isNaN(Number(value))
+                                ? (Number(value) / 1e9).toLocaleString(
+                                    undefined,
+                                    { maximumFractionDigits: 4 },
+                                  )
                                 : '-'
                             const statusLabel = getMilestoneStatusLabel(
                               milestone.fields.status,
                             )
-                            const proof = milestone.fields.proof_reference
+                            const proof = decodeDescription(milestone.fields.proof_reference)
                             const isPending = milestone.fields.status === 0 // Pending
                             const isSubmitted = milestone.fields.status === 1 // Submitted
+                            const canDispute =
+                              (isSubmitted && address === contract.partyB) || // Party B can dispute after proof submitted
+                              (isPending && address === contract.partyA) // Party A can dispute if milestone is stuck
                             return (
                               <li key={idx} className="flex flex-col gap-1">
                                 <span className="text-emerald-400 text-sm">
@@ -855,9 +1086,23 @@ export default function ContractDetail() {
                                 {isSubmitted && address === contract.partyA && (
                                   <button
                                     className="mt-1 px-3 py-1 bg-emerald-600 text-white rounded text-xs hover:bg-emerald-700 transition"
-                                    onClick={() => handleAction('approveMilestone', undefined, idx)}
+                                    onClick={() =>
+                                      handleAction(
+                                        'approveMilestone',
+                                        undefined,
+                                        idx,
+                                      )
+                                    }
                                   >
                                     Approve & Release
+                                  </button>
+                                )}
+                                {canDispute && (
+                                  <button
+                                    className="mt-1 px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition"
+                                    onClick={() => handleOpenDisputeModal(idx)}
+                                  >
+                                    Dispute
                                   </button>
                                 )}
                               </li>
@@ -932,7 +1177,11 @@ export default function ContractDetail() {
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
                   className="space-y-8 hidden md:block"
-                >                  <div className="rounded-2xl bg-gradient-to-br from-indigo-800/40 to-fuchsia-800/10 p-4 shadow-lg border border-indigo-700/20 flex flex-col gap-4">                    <ActionsCard
+                >
+                  {' '}
+                  <div className="rounded-2xl bg-gradient-to-br from-indigo-800/40 to-fuchsia-800/10 p-4 shadow-lg border border-indigo-700/20 flex flex-col gap-4">
+                    {' '}
+                    <ActionsCard
                       onSign={() => handleAction('sign')}
                       status={contract.status}
                       address={address!}
@@ -946,11 +1195,7 @@ export default function ContractDetail() {
                           ? () => setShowFundModal(true)
                           : undefined
                       }
-                      onCreateSolanaStub={
-                        showCreateSolanaStubButton
-                          ? () => handleAction('create-solana-stub')
-                          : undefined
-                      }
+
                     />
                     {showRefundEscrowButton && (
                       <button
@@ -1020,22 +1265,25 @@ export default function ContractDetail() {
         }}
         max={walletBalance}
         loading={funding}
-        firstMilestoneValue={
-          (() => {
-            if (!contract || !contract.milestones || contract.milestones.length === 0) return 0
-            let mistValue: number | string | undefined =
-              'fields' in contract.milestones[0]
-                ? (contract.milestones[0] as any).fields.value
-                : (contract.milestones[0] as any)?.value
-            if (typeof mistValue === 'string') {
-              mistValue = Number(mistValue)
-            }
-            if (typeof mistValue === 'number' && !isNaN(mistValue)) {
-              return mistValue / 1e9 // Convert MIST to SUI
-            }
+        firstMilestoneValue={(() => {
+          if (
+            !contract ||
+            !contract.milestones ||
+            contract.milestones.length === 0
+          )
             return 0
-          })()
-        }
+          let mistValue: number | string | undefined =
+            'fields' in contract.milestones[0]
+              ? (contract.milestones[0] as any).fields.value
+              : (contract.milestones[0] as any)?.value
+          if (typeof mistValue === 'string') {
+            mistValue = Number(mistValue)
+          }
+          if (typeof mistValue === 'number' && !isNaN(mistValue)) {
+            return mistValue / 1e9 // Convert MIST to SUI
+          }
+          return 0
+        })()}
       />
       <ContractActionConfirmationModal
         isOpen={actionModal.open}
@@ -1053,37 +1301,86 @@ export default function ContractDetail() {
         {actionModal.content}
       </ContractActionConfirmationModal>
       {showProofModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-    <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md shadow-2xl border border-indigo-700">
-      <h2 className="text-lg font-semibold mb-4 text-indigo-300">
-        Submit Proof for Milestone #{selectedMilestoneId !== null ? selectedMilestoneId + 1 : ''}
-      </h2>
-      <textarea
-        className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 mb-4"
-        rows={3}
-        placeholder="Enter proof reference (URL, hash, etc)"
-        value={proofInput}
-        onChange={e => setProofInput(e.target.value)}
-      />
-      <div className="flex gap-3 justify-end">
-        <button
-          className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600"
-          onClick={() => setShowProofModal(false)}
-          disabled={submittingProof}
-        >
-          Cancel
-        </button>
-        <button
-          className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
-          onClick={handleSubmitProof}
-          disabled={submittingProof || !proofInput}
-        >
-          {submittingProof ? 'Submitting...' : 'Submit'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md shadow-2xl border border-indigo-700">
+            <h2 className="text-lg font-semibold mb-4 text-indigo-300">
+              Submit Proof for Milestone #
+              {selectedMilestoneId !== null ? selectedMilestoneId + 1 : ''}
+            </h2>
+            <textarea
+              className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 mb-4"
+              rows={3}
+              placeholder="Enter proof reference (URL, hash, etc)"
+              value={proofInput}
+              onChange={(e) => setProofInput(e.target.value)}
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600"
+                onClick={() => setShowProofModal(false)}
+                disabled={submittingProof}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+                onClick={handleSubmitProof}
+                disabled={submittingProof || !proofInput}
+              >
+                {submittingProof ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDisputeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md shadow-lg border border-red-700/40">
+            <h2 className="text-lg font-semibold text-red-400 mb-2">Dispute Milestone</h2>
+            <textarea
+              className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 mb-4"
+              rows={3}
+              placeholder="Enter reason for dispute..."
+              value={disputeReason}
+              onChange={e => setDisputeReason(e.target.value)}
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-1 rounded bg-gray-700 text-white hover:bg-gray-600"
+                onClick={() => setShowDisputeModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                disabled={!disputeReason || submittingDispute}
+                onClick={handleSubmitDispute}
+              >
+                {submittingDispute ? 'Submitting...' : 'Submit Dispute'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+const solanaNetwork = WalletAdapterNetwork.Testnet;
+const solanaEndpoint = clusterApiUrl(solanaNetwork);
+const solanaWallets = [new UnsafeBurnerWalletAdapter()];
+
+function ContractDetailWithSolanaProvider(props: any) {
+  return (
+    <SolanaConnectionProvider endpoint={solanaEndpoint}>
+      <SolanaWalletProvider wallets={solanaWallets} autoConnect>
+        <SolanaWalletModalProvider>
+          <ContractDetail {...props} />
+        </SolanaWalletModalProvider>
+      </SolanaWalletProvider>
+    </SolanaConnectionProvider>
+  );
+}
+
+// Replace the default export
+export default ContractDetailWithSolanaProvider;

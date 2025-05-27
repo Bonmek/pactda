@@ -1,7 +1,7 @@
 /**
  * Service initialization for the frontend application
  */
-import { solanaService } from './SolanaService';
+import { solanaService } from './SolanaService'
 
 /**
  * Initialize all services when the app starts
@@ -9,11 +9,11 @@ import { solanaService } from './SolanaService';
 export const initializeServices = () => {
   try {
     // Initialize Solana service with sponsor key from environment
-    solanaService.initializeSponsor();
-    console.log('✅ Services initialized successfully');
+    solanaService.initializeSponsor()
+    console.log('✅ Services initialized successfully')
   } catch (error) {
-    console.error('❌ Error initializing services:', error);
+    console.error('❌ Error initializing services:', error)
   }
-};
+}
 
-export default initializeServices;
+export default initializeServices

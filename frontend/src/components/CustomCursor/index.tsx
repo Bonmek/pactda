@@ -12,18 +12,15 @@ const CustomCursor: React.FC = () => {
   const [showHelper, setShowHelper] = useState<boolean>(false)
   const [firstVisit, setFirstVisit] = useState<boolean>(false)
   useEffect(() => {
-    // Check if this is user's first visit
     const hasVisitedBefore = localStorage.getItem('pactda_visited')
 
     if (!hasVisitedBefore) {
       setFirstVisit(true)
       localStorage.setItem('pactda_visited', 'true')
 
-      // Show the helper after a short delay
       setTimeout(() => {
         setShowHelper(true)
 
-        // Hide helper after 3 seconds
         setTimeout(() => {
           setShowHelper(false)
         }, 3000)
@@ -32,7 +29,6 @@ const CustomCursor: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    // Check if device is mobile by screen size and touch capability
     const checkMobile = () => {
       const hasTouchScreen =
         'ontouchstart' in window || navigator.maxTouchPoints > 0
@@ -40,10 +36,8 @@ const CustomCursor: React.FC = () => {
       setIsMobile(hasTouchScreen || isSmallScreen)
     }
 
-    // Check initially
     checkMobile()
 
-    // Add resize listener
     window.addEventListener('resize', checkMobile)
 
     return () => {
@@ -59,11 +53,9 @@ const CustomCursor: React.FC = () => {
     const container = containerRef.current
     if (!cursor || !dot || !container) return
 
-    // Add discovery animation class if first visit
     if (firstVisit && cursor) {
       cursor.classList.add('cursor-discovery-animation')
 
-      // Remove animation class after it completes
       setTimeout(() => {
         cursor.classList.remove('cursor-discovery-animation')
       }, 1200)

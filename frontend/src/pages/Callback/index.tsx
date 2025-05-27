@@ -27,6 +27,9 @@ const GoogleCallback = () => {
 
         const zkLoginUserAddress = jwtToAddress(idToken, salt)
 
+        // Store the salt for future transaction signing
+        sessionStorage.setItem('zklogin-salt', salt)
+        
         setZkloginAddress(zkLoginUserAddress)
       } catch (err: any) {
         console.error(err)

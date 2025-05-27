@@ -24,7 +24,10 @@ const MilestoneList = ({
             const isOnChain = !!milestone.fields
             return (
               <MilestoneItem
-                key={getMilestoneField(milestone, 'id') || getMilestoneField(milestone, 'description_hash')}
+                key={
+                  getMilestoneField(milestone, 'id') ||
+                  getMilestoneField(milestone, 'description_hash')
+                }
                 milestone={milestone}
                 index={milestones.indexOf(milestone)}
                 onUpdate={updateMilestone}
