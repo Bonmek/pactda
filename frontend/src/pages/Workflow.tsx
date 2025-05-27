@@ -11,6 +11,12 @@ import {
   Clock,
   Shield,
   Zap,
+  AlertCircle,
+  Wallet,
+  Mail,
+  FileText,
+  CreditCard,
+  Users,
 } from 'lucide-react'
 
 const Workflow: React.FC = () => {
@@ -67,8 +73,7 @@ const Workflow: React.FC = () => {
           className="absolute top-1/3 right-1/3 w-32 h-32 bg-blue-300 bg-opacity-20 rounded-full"
           style={{ filter: 'blur(30px)' }}
         />{' '}
-      </div>
-
+      </div>{' '}
       <div className="relative z-10 text-center mb-12">
         {' '}
         <motion.h1
@@ -87,14 +92,61 @@ const Workflow: React.FC = () => {
           by step. Our workflow is designed to be intuitive, transparent, and
           secure.
         </motion.p>
+        {/* Quick Tips Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="bg-gradient-to-r from-blue-900 to-purple-900 bg-opacity-50 p-6 rounded-xl border border-blue-700 border-opacity-30 shadow-lg max-w-3xl mx-auto mb-8"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <Zap className="w-6 h-6 text-yellow-400" />
+            <h3 className="text-lg font-bold text-yellow-300">
+              Quick Start Tips
+            </h3>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-start gap-2">
+              <Shield className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-blue-300">
+                  Security First:
+                </span>
+                <p className="text-gray-300">
+                  Always verify contract details before signing
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Clock className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-green-300">Plan Ahead:</span>
+                <p className="text-gray-300">
+                  Set realistic milestones and deadlines
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Users className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium text-purple-300">
+                  Communicate:
+                </span>
+                <p className="text-gray-300">
+                  Stay in touch throughout the project
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </div>
-
       <motion.div
         variants={container}
         initial="hidden"
         animate="show"
         className="relative z-10 w-full max-w-4xl mx-auto mb-16"
       >
+        {' '}
         <ol className="space-y-8">
           <motion.li variants={item} className="flex items-center gap-6">
             <motion.span
@@ -106,9 +158,34 @@ const Workflow: React.FC = () => {
             </motion.span>
             <div className="bg-gray-900 bg-opacity-60 p-6 rounded-xl border border-blue-900 border-opacity-20 shadow-lg flex-1 relative overflow-hidden">
               <div className="absolute -top-10 -left-10 w-40 h-40 bg-gradient-to-br from-blue-600 to-blue-400 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-              <h2 className="text-xl font-bold text-blue-300 mb-2">
+              <h2 className="text-xl font-bold text-blue-300 mb-3">
                 1. Connect & Onboard
               </h2>
+
+              {/* Prerequisites */}
+              <div className="mb-4 p-3 bg-blue-900 bg-opacity-30 rounded-lg border border-blue-700 border-opacity-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-300">
+                    Prerequisites:
+                  </span>
+                </div>
+                <ul className="text-sm text-blue-200 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <Wallet className="w-3 h-3" />A crypto wallet (Sui Wallet,
+                    MetaMask) OR
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Mail className="w-3 h-3" />
+                    Google/Facebook account for easy signup
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Shield className="w-3 h-3" />
+                    Valid email address for notifications (future updates)
+                  </li>
+                </ul>
+              </div>
+
               <p className="text-gray-300 leading-relaxed">
                 Connect your wallet (Sui, MetaMask, or zkLogin) or sign up with
                 Google/Facebook. PactDA supports multiple login methods for
@@ -127,9 +204,38 @@ const Workflow: React.FC = () => {
             </motion.span>
             <div className="bg-gray-900 bg-opacity-60 p-6 rounded-xl border border-cyan-900 border-opacity-20 shadow-lg flex-1 relative overflow-hidden">
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-cyan-600 to-blue-400 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-              <h2 className="text-xl font-bold text-cyan-300 mb-2">
+              <h2 className="text-xl font-bold text-cyan-300 mb-3">
                 2. Create Contract
               </h2>
+
+              {/* Prerequisites */}
+              <div className="mb-4 p-3 bg-cyan-900 bg-opacity-30 rounded-lg border border-cyan-700 border-opacity-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm font-semibold text-cyan-300">
+                    Prerequisites:
+                  </span>
+                </div>
+                <ul className="text-sm text-cyan-200 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <FileText className="w-3 h-3" />
+                    Clear project scope and deliverables
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Clock className="w-3 h-3" />
+                    Defined timeline and milestones
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CreditCard className="w-3 h-3" />
+                    Payment amounts for each milestone
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Users className="w-3 h-3" />
+                    Counterparty's wallet address or email
+                  </li>
+                </ul>
+              </div>
+
               <p className="text-gray-300 leading-relaxed">
                 Set up your agreement with a user-friendly interface. Add
                 detailed milestones with descriptions, deadlines, and payment
@@ -149,9 +255,38 @@ const Workflow: React.FC = () => {
             </motion.span>
             <div className="bg-gray-900 bg-opacity-60 p-6 rounded-xl border border-amber-900 border-opacity-20 shadow-lg flex-1 relative overflow-hidden">
               <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-gradient-to-br from-amber-600 to-pink-400 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-              <h2 className="text-xl font-bold text-amber-300 mb-2">
+              <h2 className="text-xl font-bold text-amber-300 mb-3">
                 3. Review & Sign
               </h2>
+
+              {/* Prerequisites */}
+              <div className="mb-4 p-3 bg-amber-900 bg-opacity-30 rounded-lg border border-amber-700 border-opacity-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-semibold text-amber-300">
+                    Prerequisites:
+                  </span>
+                </div>
+                <ul className="text-sm text-amber-200 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <FileText className="w-3 h-3" />
+                    Both parties must review contract terms
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Wallet className="w-3 h-3" />
+                    Connected wallet for digital signature
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-3 h-3" />
+                    Agreement on all milestone details
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Shield className="w-3 h-3" />
+                    Understanding of smart contract terms
+                  </li>
+                </ul>
+              </div>
+
               <p className="text-gray-300 leading-relaxed">
                 Both parties review the agreement details. The smart contract
                 ensures that all terms are transparent and immutable once
@@ -171,9 +306,38 @@ const Workflow: React.FC = () => {
             </motion.span>
             <div className="bg-gray-900 bg-opacity-60 p-6 rounded-xl border border-green-900 border-opacity-20 shadow-lg flex-1 relative overflow-hidden">
               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-gradient-to-br from-green-600 to-blue-400 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-              <h2 className="text-xl font-bold text-green-300 mb-2">
+              <h2 className="text-xl font-bold text-green-300 mb-3">
                 4. Fund Escrow
               </h2>
+
+              {/* Prerequisites */}
+              <div className="mb-4 p-3 bg-green-900 bg-opacity-30 rounded-lg border border-green-700 border-opacity-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-green-400" />
+                  <span className="text-sm font-semibold text-green-300">
+                    Prerequisites:
+                  </span>
+                </div>
+                <ul className="text-sm text-green-200 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <CreditCard className="w-3 h-3" />
+                    Sufficient funds in your wallet
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Zap className="w-3 h-3" />
+                    Small amount for transaction fees
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-3 h-3" />
+                    Both parties have signed the contract
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Shield className="w-3 h-3" />
+                    Understanding of escrow mechanism
+                  </li>
+                </ul>
+              </div>
+
               <p className="text-gray-300 leading-relaxed">
                 Deposit funds into the smart contract escrow for milestone-based
                 release. The escrow supports multiple tokens and currencies,
@@ -193,9 +357,38 @@ const Workflow: React.FC = () => {
             </motion.span>
             <div className="bg-gray-900 bg-opacity-60 p-6 rounded-xl border border-purple-900 border-opacity-20 shadow-lg flex-1 relative overflow-hidden">
               <div className="absolute -top-10 -left-10 w-40 h-40 bg-gradient-to-br from-purple-600 to-blue-400 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-              <h2 className="text-xl font-bold text-purple-300 mb-2">
+              <h2 className="text-xl font-bold text-purple-300 mb-3">
                 5. Milestone Management
               </h2>
+
+              {/* Prerequisites */}
+              <div className="mb-4 p-3 bg-purple-900 bg-opacity-30 rounded-lg border border-purple-700 border-opacity-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm font-semibold text-purple-300">
+                    Prerequisites:
+                  </span>
+                </div>
+                <ul className="text-sm text-purple-200 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <Banknote className="w-3 h-3" />
+                    Escrow must be funded
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <FileText className="w-3 h-3" />
+                    Work deliverables and proof ready
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Clock className="w-3 h-3" />
+                    Regular communication between parties
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-3 h-3" />
+                    Clear milestone completion criteria
+                  </li>
+                </ul>
+              </div>
+
               <p className="text-gray-300 leading-relaxed">
                 Track progress of each milestone with real-time updates. Submit
                 and review deliverables directly through the platform with
@@ -215,9 +408,38 @@ const Workflow: React.FC = () => {
             </motion.span>
             <div className="bg-gray-900 bg-opacity-60 p-6 rounded-xl border border-pink-900 border-opacity-20 shadow-lg flex-1 relative overflow-hidden">
               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-gradient-to-br from-pink-600 to-purple-400 rounded-full filter blur-3xl opacity-10 -z-10"></div>
-              <h2 className="text-xl font-bold text-pink-300 mb-2">
+              <h2 className="text-xl font-bold text-pink-300 mb-3">
                 6. Complete & Release
               </h2>
+
+              {/* Prerequisites */}
+              <div className="mb-4 p-3 bg-pink-900 bg-opacity-30 rounded-lg border border-pink-700 border-opacity-50">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-pink-400" />
+                  <span className="text-sm font-semibold text-pink-300">
+                    Prerequisites:
+                  </span>
+                </div>
+                <ul className="text-sm text-pink-200 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-3 h-3" />
+                    Milestone deliverables submitted
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Users className="w-3 h-3" />
+                    Client approval of work completed
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Shield className="w-3 h-3" />
+                    No active disputes on milestone
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Banknote className="w-3 h-3" />
+                    Sufficient funds remain in escrow
+                  </li>
+                </ul>
+              </div>
+
               <p className="text-gray-300 leading-relaxed">
                 As milestones are completed and approved, funds are
                 automatically released from escrow to the recipient. The entire
@@ -228,7 +450,6 @@ const Workflow: React.FC = () => {
           </motion.li>
         </ol>
       </motion.div>
-
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}

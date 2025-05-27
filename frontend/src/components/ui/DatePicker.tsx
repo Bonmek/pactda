@@ -99,7 +99,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                 {selected ? format(selected, 'yyyy-MM-dd') : placeholder}
               </span>
             </Popover.Button>
-            <Popover.Panel className="absolute z-99 mt-2 left-0 w-80 bg-slate-900 border border-blue-500/20 rounded-xl p-4 shadow-xl">
+            <Popover.Panel className="absolute z-[9999] mt-2 left-0 w-80 bg-slate-900 border border-blue-500/20 rounded-xl p-4 shadow-xl">
               <div className="flex items-center justify-between mb-4">
                 <button
                   type="button"

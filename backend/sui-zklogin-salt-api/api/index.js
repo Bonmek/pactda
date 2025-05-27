@@ -15,7 +15,6 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Initialize MongoDB connection
 let cachedDb = null;
 
 async function connectToDatabase() {
@@ -34,21 +33,28 @@ async function connectToDatabase() {
   return db;
 }
 
-// BN254 scalar field modulus (r)
-// This is the order of the scalar field for the BN254 curve.
 const BN254_FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
 
-// Generate a cryptographically secure random salt within the BN254 field
+/**
+ * Generates a cryptographically secure random salt for use with Sui zkLogin
+ * The salt must be a valid field element in the BN254 scalar field
+ * This is required for Groth16 proof compatibility with zkLogin
+ * 
+ * @returns {string} A valid zkLogin salt as a decimal string
+ */
 function generateSalt() {
-  // Generate 16 random bytes (128 bits) for entropy.
-  const buffer = crypto.randomBytes(16);
-  // Convert the random bytes to a BigInt.
+  // Use 32 bytes of randomness for greater security (256 bits)
+  const buffer = crypto.randomBytes(32);
+  
+  // Convert to BigInt with 0x prefix for hex interpretation
   const randomBigInt = BigInt(`0x${buffer.toString('hex')}`);
-  // Reduce the BigInt modulo the field modulus.
-  // This ensures the salt is within the valid range [0, BN254_FIELD_MODULUS - 1].
+  
+  // Ensure the value is within the valid range for BN254 scalar field
+  // by taking modulo of the field size
   const salt = randomBigInt % BN254_FIELD_MODULUS;
-  // Return the salt as a base-10 string.
-  return salt.toString();
+  
+  // Return as decimal string as required by Sui zkLogin
+  return salt.toString(10);
 }
 
 // Routes
@@ -60,6 +66,11 @@ app.get('/api/salt', async (req, res) => {
       return res.status(400).json({ error: 'Missing required query parameters: sub (user identifier) and iss (issuer)' });
     }
     
+    // Basic validation for iss and sub
+    if (typeof iss !== 'string' || iss.trim() === '' || typeof sub !== 'string' || sub.trim() === '') {
+      return res.status(400).json({ error: 'Invalid iss or sub format' });
+    }
+    
     const db = await connectToDatabase();
     const collection = db.collection('user_salts');
     
@@ -67,9 +78,23 @@ app.get('/api/salt', async (req, res) => {
     const userRecord = await collection.findOne({ userKey });
     
     if (!userRecord) {
+      console.log(`Salt not found for user key: ${userKey.substring(0, 15)}...`);
       return res.status(404).json({ error: 'Salt not found for this user' });
     }
     
+    // Verify stored salt is still a valid BN254 field element
+    try {
+      const saltBigInt = BigInt(userRecord.salt);
+      if (saltBigInt <= 0 || saltBigInt >= BN254_FIELD_MODULUS) {
+        console.error(`Invalid salt detected for user ${userKey.substring(0, 15)}...`);
+        return res.status(500).json({ error: 'Stored salt is invalid for Sui zkLogin Groth16 proofs' });
+      }
+    } catch (error) {
+      console.error(`Salt parsing error for user ${userKey.substring(0, 15)}...`, error);
+      return res.status(500).json({ error: 'Invalid salt format in database' });
+    }
+    
+    console.log(`Successfully retrieved salt for user ${userKey.substring(0, 15)}...`);
     return res.status(200).json({ salt: userRecord.salt });
   } catch (error) {
     console.error('Error processing request:', error);
@@ -85,6 +110,11 @@ app.post('/api/salt', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: sub (user identifier) and iss (issuer)' });
     }
     
+    // Basic validation for iss and sub
+    if (typeof iss !== 'string' || iss.trim() === '' || typeof sub !== 'string' || sub.trim() === '') {
+      return res.status(400).json({ error: 'Invalid iss or sub format' });
+    }
+    
     const db = await connectToDatabase();
     const collection = db.collection('user_salts');
     
@@ -93,14 +123,66 @@ app.post('/api/salt', async (req, res) => {
     
     if (!userRecord) {
       const salt = generateSalt();
-      userRecord = { userKey, salt, createdAt: new Date() };
+      
+      const saltBigInt = BigInt(salt);
+      if (saltBigInt <= 0 || saltBigInt >= BN254_FIELD_MODULUS) {
+        throw new Error('Generated salt is outside valid BN254 field range');
+      }
+      
+      userRecord = { 
+        userKey, 
+        salt, 
+        createdAt: new Date(),
+        provider: iss,
+        subjectId: sub 
+      };
+      
       await collection.insertOne(userRecord);
+      console.log(`Created new salt for user ${userKey.substring(0, 15)}...`);
+    } else {
+      console.log(`Retrieved existing salt for user ${userKey.substring(0, 15)}...`);
     }
     
     return res.status(200).json({ salt: userRecord.salt });
   } catch (error) {
     console.error('Error processing request:', error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Utility endpoint to validate if a salt is valid for zkLogin
+app.post('/api/salt/validate', async (req, res) => {
+  try {
+    const { salt } = req.body;
+    
+    if (!salt) {
+      return res.status(400).json({ error: 'Missing salt parameter', isValid: false });
+    }
+    
+    try {
+      // Try to parse the salt as a BigInt
+      const saltBigInt = BigInt(salt);
+      
+      // Check if it's within the valid BN254 scalar field range
+      const isValid = saltBigInt > 0 && saltBigInt < BN254_FIELD_MODULUS;
+      
+      return res.status(200).json({ 
+        isValid,
+        salt,
+        message: isValid ? 
+          'Salt is valid for Sui zkLogin Groth16 proofs' : 
+          'Salt is outside the valid BN254 field element range'
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        isValid: false,
+        salt,
+        error: 'Invalid salt format. Must be a valid decimal number string'
+      });
+    }
+  } catch (error) {
+    console.error('Error validating salt:', error);
+    return res.status(500).json({ error: 'Internal server error', isValid: false });
   }
 });
 
@@ -115,8 +197,10 @@ app.get('/', (req, res) => {
     message: 'Welcome to the Salt API for Sui zkLogin',
     endpoints: {
       health: '/api/health',
-      salt: '/api/salt'
-    }
+      salt: '/api/salt',
+      validate: '/api/salt/validate'
+    },
+    details: 'This API generates and stores cryptographically secure salts compatible with Sui zkLogin Groth16 proofs'
   });
 });
 

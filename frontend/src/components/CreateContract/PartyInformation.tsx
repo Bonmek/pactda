@@ -29,7 +29,9 @@ const PartyInformation = ({
   partyBBlockchain: propPartyBBlockchain,
   onPartyBAddressChange,
 }: PartyInformationProps) => {
-  const [partyBBlockchain, setPartyBBlockchain] = useState<string>(propPartyBBlockchain ?? 'Sui')
+  const [partyBBlockchain, setPartyBBlockchain] = useState<string>(
+    propPartyBBlockchain ?? 'Sui',
+  )
 
   useEffect(() => {
     if (propPartyBBlockchain && propPartyBBlockchain !== partyBBlockchain) {
@@ -47,7 +49,9 @@ const PartyInformation = ({
     onPartyBAddressChange(partyBAddress ?? '', blockchain)
   }
 
-  const handlePartyBAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePartyBAddressChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     onPartyBAddressChange(e.target.value, partyBBlockchain)
   }
 

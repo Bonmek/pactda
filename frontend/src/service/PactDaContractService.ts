@@ -3,7 +3,12 @@ import { TransactionBlock } from '@mysten/sui.js/transactions'
 import { SuiClient } from '@mysten/sui/client'
 import { Transaction } from '@mysten/sui/transactions'
 import { toast } from 'sonner'
-import { buildCreateMilestoneTx, buildSignContractAsPartyATx, buildSignContractAsPartyBTx, buildSubmitContractTx } from './PactdaService'
+import {
+  buildCreateMilestoneTx,
+  buildSignContractAsPartyATx,
+  buildSignContractAsPartyBTx,
+  buildSubmitContractTx,
+} from './PactdaService'
 
 // Import environment variables for package and module
 const PACKAGE_ID =
@@ -107,7 +112,6 @@ export const getContracts = async (
     })
 }
 
-
 // Get contract detail
 export const getContractDetail = async (suiClient, contractId) => {
   const contracts = await getContracts(suiClient, [contractId])
@@ -140,7 +144,10 @@ export const signContract = async (
     return
   }
   toast.promise(
-    suiClient.waitForTransaction({ digest: result.digest, options: { showEffects: true } }),
+    suiClient.waitForTransaction({
+      digest: result.digest,
+      options: { showEffects: true },
+    }),
     {
       loading: 'Processing signature...',
       success: async () => {
@@ -167,7 +174,10 @@ export const submitContract = async (
     return
   }
   toast.promise(
-    suiClient.waitForTransaction({ digest: result.digest, options: { showEffects: true } }),
+    suiClient.waitForTransaction({
+      digest: result.digest,
+      options: { showEffects: true },
+    }),
     {
       loading: 'Submitting contract...',
       success: async () => {
@@ -178,7 +188,6 @@ export const submitContract = async (
     },
   )
 }
-
 
 // Export functions for contract interactions
 export {

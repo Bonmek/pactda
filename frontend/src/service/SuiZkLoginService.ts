@@ -1,4 +1,5 @@
 // src/services/suiZkLogin.ts
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import {
   generateNonce,
   jwtToAddress,
@@ -6,9 +7,21 @@ import {
   getExtendedEphemeralPublicKey,
   getZkLoginSignature,
 } from '@mysten/sui/zklogin'
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
-import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
+import axios from 'axios'
+
+
+
+interface JwtPayload {
+  iss: string       // Issuer 
+  sub: string       // Subject (user identifier)
+  aud: string       // Audience
+  iat?: number      // Issued at timestamp
+  exp?: number      // Expiration timestamp
+  email?: string    // Optional email claim
+  name?: string     // Optional name claim
+  [key: string]: any // Allow for additional claims
+}
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL
 
@@ -16,6 +29,9 @@ const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL
 export const createEphemeralKey = (): Ed25519Keypair => {
   return new Ed25519Keypair()
 }
+
+
+
 
 // --- SessionStorage Functions ---
 
@@ -88,16 +104,72 @@ export const generateNonceAndStore = (
 
 // Restore all previously stored zkLogin session data
 export const restoreEphemeralKeyAndRandomness = () => {
-  const sk = getEphemeralPrivateKey()
-  const randStr = getJwtRandomness()
-  const maxEpoch = getLoginMaxEpoch()
-  const nonce = getLoginNonce()
+  try {
+    // Step 1: Check that all required data is available
+    const sk = getEphemeralPrivateKey()
+    const randStr = getJwtRandomness()
+    const maxEpoch = getLoginMaxEpoch()
+    const nonce = getLoginNonce()
+    const zkloginAddress = sessionStorage.getItem('zklogin-address')
+    const idToken = sessionStorage.getItem('id-token')
 
-  return {
-    ephemeralKeypair: Ed25519Keypair.fromSecretKey(sk),
-    randomness: randStr,
-    maxEpoch,
-    nonce,
+    // Step 2: Validate session data completeness
+    if (!zkloginAddress || !idToken) {
+      console.error('zkLogin session is incomplete:', { 
+        hasAddress: Boolean(zkloginAddress), 
+        hasToken: Boolean(idToken) 
+      })
+      throw new Error('zkLogin authentication session is incomplete')
+    }
+
+    // Step 3: Verify the private key format is correct
+    if (!sk || typeof sk !== 'string' || sk.length === 0) {
+      throw new Error('Ephemeral private key is empty or invalid')
+    }
+
+    if (!randStr || typeof randStr !== 'string' || randStr.length === 0) {
+      throw new Error('JWT randomness is empty or invalid')
+    }
+
+    // Step 4: Create and validate the keypair
+    try {
+      const keypair = Ed25519Keypair.fromSecretKey(sk)
+      
+      // Test that we can get the public key (this will throw if the key is invalid)
+      const publicKey = keypair.getPublicKey()
+      if (!publicKey) {
+        throw new Error('Generated empty public key')
+      }
+      
+      console.log('Successfully restored zkLogin ephemeral keypair and session data')
+      
+      return {
+        ephemeralKeypair: keypair,
+        randomness: randStr,
+        maxEpoch,
+        nonce,
+      }
+    } catch (keypairError) {
+      console.error('Error creating ephemeral keypair:', keypairError)
+      throw new Error('Invalid ephemeral key format. Please login again.')
+    }
+  } catch (error) {
+    console.error('Failed to restore zkLogin session data:', error)
+    // Clear corrupted data to prevent repeated failures
+    clearZkLoginStorage()
+    // Provide helpful error message
+    if (error instanceof Error) {
+      const errorMessage = error.message || 'Unknown error'
+      if (errorMessage.includes('format')) {
+        throw new Error('Invalid authentication data format. Please login again.')
+      } else if (errorMessage.includes('incomplete')) {
+        throw new Error('Your authentication session is incomplete. Please login again.')
+      } else {
+        throw new Error(`zkLogin session has expired or is invalid. Please login again. Details: ${errorMessage}`)
+      }
+    } else {
+      throw new Error(`zkLogin session error: ${String(error)}. Please login again.`)
+    }
   }
 }
 
@@ -193,13 +265,46 @@ export const createZkLoginSignature = (
   maxEpoch: number,
   userSignature: string,
 ) => {
-  const addressSeed = genAddressSeed(
-    salt,
+  // Enhanced audience handling when it might be an array or string or undefined
+  let audience = '';
+  
+  if (typeof decodedJwt.aud === 'string') {
+    audience = decodedJwt.aud;
+  } else if (Array.isArray(decodedJwt.aud)) {
+    // If it's an array, use the first non-empty audience value
+    for (const audValue of decodedJwt.aud) {
+      if (audValue && typeof audValue === 'string') {
+        audience = audValue;
+        break;
+      }
+    }
+    // If no valid audience was found in the array, log warning
+    if (!audience) {
+      console.warn('No valid audience found in JWT aud array, using empty string');
+    }
+  } else if (decodedJwt.aud !== undefined) {
+    console.warn('Unexpected JWT audience format:', typeof decodedJwt.aud);
+  }
+  
+  console.log('Using audience for zkLogin signature:', audience);
+  
+  // Convert salt to BigInt for genAddressSeed
+  const saltBigInt = BigInt(salt);
+      
+  // Generate the address seed
+  const addressSeedBigInt = genAddressSeed(
+    saltBigInt,
     'sub',
     decodedJwt.sub,
-    decodedJwt.aud,
-  ).toString()
+    audience
+  );
+  
+  // Convert to string for getZkLoginSignature
+  const addressSeed = addressSeedBigInt.toString();
+  
+  console.log('Generated address seed successfully');
 
+  // Create the zkLogin signature
   return getZkLoginSignature({
     inputs: {
       proofPoints,
@@ -213,6 +318,16 @@ export const createZkLoginSignature = (
     maxEpoch,
     userSignature,
   })
+}
+
+// Store salt in session storage for reuse during transaction signing
+export const storeSalt = (salt: string): void => {
+  sessionStorage.setItem('zklogin-salt', salt)
+}
+
+// Retrieve salt from session storage
+export const getSavedSalt = (): string | null => {
+  return sessionStorage.getItem('zklogin-salt')
 }
 
 // Fetch the salt value (used in address derivation) from your backend using issuer and subject

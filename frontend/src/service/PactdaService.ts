@@ -1,6 +1,5 @@
 import { SuiClient } from '@mysten/sui/client'
 import { coinWithBalance, Transaction } from '@mysten/sui/transactions'
-import { TransactionBlock } from '@mysten/sui.js/transactions'
 import { PactDaContract } from '@/@types/PactDaContract'
 import { useCurrentAccount } from '@mysten/dapp-kit'
 import { toast } from 'sonner'
@@ -252,13 +251,13 @@ export const buildCompleteMilestoneTx = (
 
 export const buildReleasePaymentTx = (
   contractId: string,
-  milestoneId: bigint | number,
+  milestoneId: string,
 ): Transaction => {
   const txb = new Transaction()
 
   txb.moveCall({
     target: `${PACKAGE_ID}::${MODULE_NAME}::release_payment`,
-    arguments: [txb.object(contractId), txb.pure.u64(milestoneId)],
+    arguments: [txb.object(contractId), txb.object(milestoneId)],
   })
 
   return txb
@@ -721,10 +720,7 @@ export async function buildReleaseMilestonePaymentTx(
   const txb = new Transaction()
   txb.moveCall({
     target: `${PACKAGE_ID}::pactda::release_payment`,
-    arguments: [
-      txb.object(contractId),
-      txb.object(escrowId),
-    ],
+    arguments: [txb.object(contractId), txb.object(escrowId)],
   })
   return txb
 }
@@ -739,9 +735,11 @@ export async function hasMilestonePaymentRecord(
 
 // Cross-chain detection and interaction utilities
 export const isCrossChainContract = (contract: PactDaContract): boolean => {
-  return !!(contract.cross_chain_parties && 
-            Array.isArray(contract.cross_chain_parties) && 
-            contract.cross_chain_parties.length > 0)
+  return !!(
+    contract.cross_chain_parties &&
+    Array.isArray(contract.cross_chain_parties) &&
+    contract.cross_chain_parties.length > 0
+  )
 }
 
 export const getCrossChainParties = (contract: PactDaContract): any[] => {
@@ -763,13 +761,17 @@ export const getCrossChainInfo = (contract: PactDaContract) => {
     const role = party.fields ? party.fields.role : party.role
     return role === 1 // PARTY_ROLE_B
   })
-  
+
   if (!partyBInfo) return null
-  
+
   return {
-    chainId: partyBInfo.fields ? partyBInfo.fields.chain_id : partyBInfo.chain_id,
-    partyAddress: partyBInfo.fields ? partyBInfo.fields.party_address : partyBInfo.party_address,
-    role: partyBInfo.fields ? partyBInfo.fields.role : partyBInfo.role
+    chainId: partyBInfo.fields
+      ? partyBInfo.fields.chain_id
+      : partyBInfo.chain_id,
+    partyAddress: partyBInfo.fields
+      ? partyBInfo.fields.party_address
+      : partyBInfo.party_address,
+    role: partyBInfo.fields ? partyBInfo.fields.role : partyBInfo.role,
   }
 }
 
@@ -782,21 +784,18 @@ export interface CrossChainSubmissionOptions {
 }
 
 export const buildCrossChainSubmitContractTx = async (
-  options: CrossChainSubmissionOptions
+  options: CrossChainSubmissionOptions,
 ): Promise<Transaction> => {
   const { contract } = options
   const txb = new Transaction()
-  
+
   const crossChainInfo = getCrossChainInfo(contract)
-  
-  if (crossChainInfo && crossChainInfo.chainId !== 21) { 
-    
+
+  if (crossChainInfo && crossChainInfo.chainId !== 21) {
     txb.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::submit_contract`,
       arguments: [txb.object(contract.objectId)],
     })
-    
-    
   } else {
     txb.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::submit_contract`,
@@ -807,21 +806,33 @@ export const buildCrossChainSubmitContractTx = async (
 }
 
 // Create Solana stub independently (separate from contract submission)
-export const createSolanaStub = async (contract: PactDaContract) => {
+export const createSolanaStub = async (
+  contract: PactDaContract,
+  userAddress?: string,
+) => {
   const crossChainInfo = getCrossChainInfo(contract)
-  
-  if (!crossChainInfo || crossChainInfo.chainId !== 1) { // 1 = Solana
+
+  if (!crossChainInfo || crossChainInfo.chainId !== 1) {
+    // 1 = Solana
     throw new Error('Contract is not a Solana cross-chain contract')
   }
-  
+
   try {
-    // Use empty string as userPublicKeyStr since this is a sponsor-only transaction
-    const result = await solanaService.createSponsoredStub('', contract)
+    // For creating Solana stub, we need the user address or use a default
+    // In the context of cross-chain contracts, we might want to use Party B's address
+    const targetUserAddress = userAddress || contract.partyB || ''
+
+    const result = await solanaService.createSponsoredStub(
+      targetUserAddress,
+      contract,
+    )
     console.log('Solana stub created:', result)
     return result
   } catch (error) {
     console.error('Failed to create Solana stub:', error)
-    throw new Error(`Failed to create Solana stub: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(
+      `Failed to create Solana stub: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 }
 
@@ -830,26 +841,26 @@ export const submitContractWithCrossChainSupport = async (
   signAndExecuteTransaction: any,
   suiClient: any,
   currentAccount: any,
-  onSuccess: () => Promise<void>
+  onSuccess: () => Promise<void>,
 ) => {
   const isCC = isCrossChainContract(contract)
   const crossChainInfo = getCrossChainInfo(contract)
 
   let txb: Transaction
-  
+
   if (isCC && crossChainInfo) {
     txb = await buildCrossChainSubmitContractTx({ contract })
     console.log('Submitting cross-chain contract:', {
       contractId: contract.objectId,
       chainId: crossChainInfo.chainId,
-      partyAddress: crossChainInfo.partyAddress
+      partyAddress: crossChainInfo.partyAddress,
     })
 
     const solanaChainId = parseInt(import.meta.env.VITE_CHAIN_ID_SOLANA || '1')
     if (crossChainInfo.chainId === solanaChainId && currentAccount?.address) {
       try {
         console.log('Creating Solana stub for cross-chain contract...')
-        
+
         if (!solanaService.isSponsorAvailable()) {
           solanaService.initializeSponsor()
         }
@@ -857,33 +868,46 @@ export const submitContractWithCrossChainSupport = async (
         if (solanaService.isSponsorAvailable()) {
           const balanceInfo = await solanaService.checkSponsorBalance()
           if (!balanceInfo.isBalanceSufficient) {
-            console.warn(`Insufficient sponsor balance: ${balanceInfo.balanceInSol} SOL (minimum 0.05 SOL required)`)
-            toast.warning('Solana stub creation may fail due to insufficient sponsor balance')
+            console.warn(
+              `Insufficient sponsor balance: ${balanceInfo.balanceInSol} SOL (minimum 0.05 SOL required)`,
+            )
+            toast.warning(
+              'Solana stub creation may fail due to insufficient sponsor balance',
+            )
           }
 
           const solanaResult = await solanaService.createSponsoredStub(
             currentAccount.address,
-            contract
+            contract,
           )
 
           console.log('Solana stub created:', {
             signature: solanaResult.signature,
-            stubId: solanaResult.solanaStubId
+            stubId: solanaResult.solanaStubId,
           })
 
-          toast.success(`Solana stub created! Stub ID: ${solanaResult.solanaStubId}`, {
-            action: {
-              label: 'View on Explorer',
-              onClick: () => window.open(`https://explorer.solana.com/tx/${solanaResult.signature}?cluster=testnet`, '_blank')
-            }
-          })
+          toast.success(
+            `Solana stub created! Stub ID: ${solanaResult.solanaStubId}`,
+            {
+              action: {
+                label: 'View on Explorer',
+                onClick: () =>
+                  window.open(
+                    `https://explorer.solana.com/tx/${solanaResult.signature}?cluster=testnet`,
+                    '_blank',
+                  ),
+              },
+            },
+          )
         } else {
           console.warn('Solana sponsor not available, skipping stub creation')
           toast.warning('Solana stub creation skipped - sponsor not configured')
         }
       } catch (solanaError) {
         console.error('Failed to create Solana stub:', solanaError)
-        toast.error(`Failed to create Solana stub: ${solanaError instanceof Error ? solanaError.message : 'Unknown error'}`)
+        toast.error(
+          `Failed to create Solana stub: ${solanaError instanceof Error ? solanaError.message : 'Unknown error'}`,
+        )
         // Don't fail the entire transaction for Solana stub creation failure
       }
     }
@@ -891,20 +915,42 @@ export const submitContractWithCrossChainSupport = async (
     txb = buildSubmitContractTx(contract.objectId)
     console.log('Submitting local contract:', contract.objectId)
   }
-  
+
   const result = await signAndExecuteTransaction({ transaction: txb })
-  
+
   if (!result.digest) {
     throw new Error('Transaction succeeded but no digest was returned')
   }
-  
+
   // Wait for transaction confirmation
-  await suiClient.waitForTransaction({ 
-    digest: result.digest, 
-    options: { showEffects: true } 
+  await suiClient.waitForTransaction({
+    digest: result.digest,
+    options: { showEffects: true },
   })
-  
+
   await onSuccess()
-  
+
   return result
+}
+
+export const buildInitiateDisputeTx = async (
+  contractId: string,
+  milestoneId: number,
+  reason: string,
+  sender: string,
+  suiClient: SuiClient
+): Promise<Transaction> => {
+  const txb = new Transaction()
+  if (sender) txb.setSenderIfNotSet(sender)
+  // Encode reason as vector<u8>
+  const reasonBytes = Array.from(new TextEncoder().encode(reason))
+  txb.moveCall({
+    target: `${PACKAGE_ID}::${MODULE_NAME}::initiate_dispute`,
+    arguments: [
+      txb.object(contractId),
+      txb.pure.u64(milestoneId),
+      txb.pure.vector('u8', reasonBytes),
+    ],
+  })
+  return txb
 }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit'
 import { ContractCard } from './ContractCard'
+import { useCrossChainWallet } from './useCrossChainWallet'
 
 const ITEMS_PER_PAGE = 10
 const PACKAGE_ID = import.meta.env.VITE_PACKAGE_ID
@@ -18,6 +19,8 @@ export default function ContractsPagination({
   type,
   searchKey,
 }: ContractsPaginationProps) {
+  // Use the new cross-chain wallet hook
+  const { walletType, address: connectedAddress } = useCrossChainWallet()
   const currentAccount = useCurrentAccount()
   const address = currentAccount?.address
 
@@ -42,7 +45,6 @@ export default function ContractsPagination({
     if (cachedData) {
       try {
         const { contracts, timestamp } = JSON.parse(cachedData)
-        // Use cache if less than 5 minutes old
         if (Date.now() - timestamp < 5 * 60 * 1000) {
           setAllContracts(contracts)
           setLoading(false)
@@ -88,7 +90,6 @@ export default function ContractsPagination({
         if (allFetchedContracts.length >= 1000) break
       }
 
-      // Cache for faster subsequent loads
       localStorage.setItem(
         'pactda-contracts-cache',
         JSON.stringify({
@@ -105,7 +106,6 @@ export default function ContractsPagination({
     }
   }, [suiClient, address, isCacheLoaded])
 
-  // Load contracts on component mount
   useEffect(() => {
     if (!isCacheLoaded) {
       fetchAllContracts()
@@ -114,10 +114,34 @@ export default function ContractsPagination({
   const filteredContracts = useMemo(() => {
     if (!allContracts.length) return []
 
+    if (walletType && walletType !== 'sui' && connectedAddress) {
+      return allContracts.filter((contract) => {
+        if (!contract.cross_chain_parties || !Array.isArray(contract.cross_chain_parties)) return false
+        const partyB = contract.cross_chain_parties.find((p: any) => {
+          const role = p.fields ? p.fields.role : p.role
+          return role === 1 // PARTY_ROLE_B
+        })
+        if (!partyB) return false
+        let partyAddress = partyB.fields ? partyB.fields.party_address : partyB.party_address
+        if (Array.isArray(partyAddress)) {
+          try {
+            const decoded = new TextDecoder().decode(Uint8Array.from(partyAddress))
+            if (decoded === connectedAddress) return true
+          } catch {}
+          try {
+            const hex = '0x' + partyAddress.map((b: number) => b.toString(16).padStart(2, '0')).join('')
+            if (hex.toLowerCase() === connectedAddress.toLowerCase()) return true
+          } catch {}
+        } else if (typeof partyAddress === 'string') {
+          if (partyAddress === connectedAddress) return true
+        }
+        return false
+      })
+    }
+
     return allContracts.filter((contract) => {
       const content = contract
       if (!content) return false
-
       switch (role) {
         case 'partyA':
           return content.party_a === address
@@ -127,9 +151,8 @@ export default function ContractsPagination({
           return content.party_a === address || content.party_b === address
       }
     })
-  }, [allContracts, role, address])
+  }, [allContracts, role, address, walletType, connectedAddress])
 
-  // Calculate pagination
   const paginatedContracts = useMemo(() => {
     const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
     const endIdx = startIdx + ITEMS_PER_PAGE

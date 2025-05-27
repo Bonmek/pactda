@@ -26,18 +26,25 @@ const MilestoneItem = ({
   if (isOnChain) {
     valueSUI = (Number(milestone.value) / 1e9).toString()
   } else {
-    valueSUI = typeof milestone.value === 'string' ? milestone.value : milestone.value.toString()
+    valueSUI =
+      typeof milestone.value === 'string'
+        ? milestone.value
+        : milestone.value.toString()
   }
   const valueDisplay = valueSUI !== '' ? valueSUI : '-'
   const [descError, setDescError] = React.useState(false)
   const [valueError, setValueError] = React.useState(false)
 
-  const [descInput, setDescInput] = React.useState(milestone.description_hash ?? '')
+  const [descInput, setDescInput] = React.useState(
+    milestone.description_hash ?? '',
+  )
   React.useEffect(() => {
     setDescInput(milestone.description_hash ?? '')
   }, [milestone.id, milestone.description_hash])
 
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleDescriptionChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>,
+  ) => {
     const val = e.target.value
     setDescInput(val)
     setDescError(!val || val.trim().length === 0)
@@ -47,7 +54,9 @@ const MilestoneItem = ({
       onUpdate(milestone.id, 'description_hash', descInput)
     }
   }
-  const handleDescriptionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleDescriptionKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+  ) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleDescriptionBlur()
@@ -57,13 +66,13 @@ const MilestoneItem = ({
     const val = e.target.value
     setValueError(!val || Number(val) <= 0)
     if (isOnChain) {
-      const mist = val && !isNaN(Number(val)) ? Math.round(Number(val) * 1e9) : 0
+      const mist =
+        val && !isNaN(Number(val)) ? Math.round(Number(val) * 1e9) : 0
       onUpdate(milestone.id, 'value', mist.toString())
     } else {
       onUpdate(milestone.id, 'value', val)
     }
   }
-
 
   return (
     <motion.div
@@ -82,14 +91,12 @@ const MilestoneItem = ({
           Milestone {index !== undefined ? index + 1 : ''}
           {total ? ` of ${total}` : ''}
         </span>
-
       </div>
       {/* Mobile layout */}
       <div className="flex flex-col gap-4 md:hidden">
         <div>
           <label className="text-xs text-slate-400 mb-1 font-light flex items-center">
             Description
-
           </label>
           <Textarea
             value={descInput}
@@ -110,7 +117,6 @@ const MilestoneItem = ({
         <div>
           <label className="text-xs text-slate-400 mb-1 font-light flex items-center">
             Value (SUI)
-
           </label>
           <Input
             value={valueSUI}
@@ -150,7 +156,6 @@ const MilestoneItem = ({
         <div className="md:col-span-2">
           <label className="text-xs text-slate-400 mb-1 font-light flex items-center">
             Description
-
           </label>
           <Textarea
             value={descInput}
@@ -171,7 +176,6 @@ const MilestoneItem = ({
         <div className="md:col-span-1">
           <label className="text-xs text-slate-400 mb-1 font-light flex items-center">
             Value (SUI)
-
           </label>
           <Input
             value={valueSUI}

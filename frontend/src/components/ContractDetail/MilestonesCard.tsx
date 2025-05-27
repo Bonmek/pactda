@@ -8,7 +8,7 @@ const itemVariants = {
 
 interface Milestone {
   description_hash: string
-  status: 'Completed' | 'In Progress' | 'Pending';
+  status: 'Completed' | 'In Progress' | 'Pending'
 }
 
 interface MilestonesCardProps {

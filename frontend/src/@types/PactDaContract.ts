@@ -1,4 +1,4 @@
-import { Milestone, OnChainMilestone } from "@/types/milestone"
+import { Milestone, OnChainMilestone } from '@/types/milestone'
 
 export type PactDaContract = {
   objectId: string

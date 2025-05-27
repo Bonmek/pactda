@@ -72,7 +72,8 @@ const ActionsCard: React.FC<ActionsCardProps> = ({
           >
             Fund Escrow
           </Button>
-        )}        {/* Refund Button (always visible if onRefund is provided) */}
+        )}{' '}
+        {/* Refund Button (always visible if onRefund is provided) */}
         {onRefund && (
           <Button
             className="bg-red-600 hover:bg-red-700 text-white w-full"

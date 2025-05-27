@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, Wallet, ChevronDown, LogOut } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom' // Corrected: useLocation is from react-router-dom
-import { useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit' // Corrected: useWalletKit is deprecated, use useCurrentAccount and useDisconnectWallet
+import { Link, useLocation } from 'react-router-dom'
+import { useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit'
 import { Button } from './ui/button'
-import UserBalance from './Wallet/UserBalance' // Import the UserBalance component
+import UserBalance from './Wallet/UserBalance'
 
 const Navbar = () => {
   const currentAccount = useCurrentAccount()

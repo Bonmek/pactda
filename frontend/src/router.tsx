@@ -4,7 +4,6 @@ import Layout from './components/Layout/Layout'
 import Index from './pages/Index'
 import Notfound from './pages/Notfound'
 import Workflow from './pages/Workflow'
-import HowToUse from './pages/HowToUse'
 import Callback from './pages/Callback'
 import Dashboard from './pages/Dashboard'
 import CreateContract from './pages/CreateContract'
@@ -56,10 +55,7 @@ export const router = createBrowserRouter([
     path: '/workflow',
     element: <RouteWrapper component={Workflow} />,
   },
-  {
-    path: '/how-to-use',
-    element: <RouteWrapper component={HowToUse} />,
-  },
+
   {
     path: '/about',
     element: <RouteWrapper component={About} />,
