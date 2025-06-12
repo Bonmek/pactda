@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey; // Corrected path
+use wormhole_sdk::vaa::Vaa;  // Add this import
+use wormhole_sdk::bridge::Bridge;  // Add this import
 
 // Your Solana Program ID
 declare_id!("4KuTWVUXcvrvoDvGqoBeivSAisXo8cQz8WA5P5GZRvgq");
@@ -12,18 +14,31 @@ const WORMHOLE_BRIDGE_ADDRESS: Pubkey = pubkey!("worm2ZoG2kUd4vFXhvjh93UUH596ayR
 pub mod solana_actions {
     pub const INITIALIZE_STUB: u8 = 0;
     pub const UPDATE_DISPLAY_STATUS: u8 = 1;
-    pub const UPDATE_STUB_DETAILS: u8 = 2; // New action for updating details
+    pub const UPDATE_STUB_DETAILS: u8 = 2;
+    pub const APPROVE_MILESTONE: u8 = 3;
+    pub const DISPUTE: u8 = 4;
+    pub const VERIFY_VCNFT: u8 = 5;
+    pub const CONTRACT_STATUS_UPDATE: u8 = 6;
+    pub const ESCROW_STATUS_UPDATE: u8 = 7;
+    pub const SIGN_CONTRACT_PARTY_B: u8 = 8;
+    pub const SUBMIT_PROOF_PARTY_B: u8 = 9;
 }
 
 // Action types for messages sent FROM Solana TO Sui (emitted in event)
 pub mod sui_actions {
     pub const SIGN_CONTRACT: u8 = 10;
     pub const SUBMIT_PROOF: u8 = 11;
-    // Add more as needed
+    pub const APPROVE_MILESTONE: u8 = 12;
+    pub const DISPUTE: u8 = 13;
+    pub const VERIFY_VCNFT: u8 = 14;
+    pub const CONTRACT_STATUS_UPDATE: u8 = 15;
+    pub const ESCROW_STATUS_UPDATE: u8 = 16;
+    pub const SIGN_CONTRACT_PARTY_B: u8 = 17;
+    pub const SUBMIT_PROOF_PARTY_B: u8 = 18;
 }
 
 // Target Sui chain ID (Wormhole's ID for Sui)
-const TARGET_CHAIN_SUI: u16 = 21; // Please verify this is the correct Wormhole Chain ID for Sui
+const TARGET_CHAIN_SUI: u16 = 21;
 
 #[program]
 pub mod pactda_sol {
@@ -71,6 +86,7 @@ pub mod pactda_sol {
         action_type_for_sui: u8,
         action_specific_payload_bytes: Vec<u8>, // e.g., Borsh-serialized SignContractSuiPayload
         target_sui_bridge_address_bytes: [u8; 32],
+        wormhole_fee: u64, // Add fee parameter
     ) -> Result<()> {
         let stub = &ctx.accounts.pact_da_stub;
 
@@ -81,53 +97,183 @@ pub mod pactda_sol {
             action_specific_data: action_specific_payload_bytes,
         };
 
+        // Create the message payload
+        let mut message_payload = vec![action_type_for_sui];
+        message_payload.extend_from_slice(&event_payload.try_to_vec()?);
+
+        // Get the Wormhole bridge program
+        let bridge_program = Bridge::new(ctx.accounts.wormhole_bridge.key());
+
+        // Create the message
+        let message = bridge_program.create_message(
+            ctx.accounts.signer.key(),
+            TARGET_CHAIN_SUI,
+            target_sui_bridge_address_bytes,
+            message_payload,
+        )?;
+
+        // Post the message to Wormhole with fee
+        bridge_program.post_message_with_fee(
+            ctx.accounts.signer.key(),
+            message,
+            wormhole_fee,
+        )?;
+
+        // Emit the event for tracking
         emit!(ActionToSuiRequested {
             solana_stub_id: stub.solana_stub_id,
             initiator_on_solana: stub.initiator,
             action_type_for_sui,
-            // Serialize the combined payload for the event
             full_action_payload_for_sui: event_payload.try_to_vec()?,
             target_chain_id: TARGET_CHAIN_SUI,
             target_sui_bridge_address: target_sui_bridge_address_bytes,
         });
 
         msg!(
-            "Action (type {}) requested for Sui contract {} (Solana Stub ID {}). Relayer should process.",
+            "Action (type {}) requested for Sui contract {} (Solana Stub ID {}). Message posted to Wormhole with fee {} lamports.",
             action_type_for_sui,
             stub.sui_contract_identifier,
-            stub.solana_stub_id
+            stub.solana_stub_id,
+            wormhole_fee
         );
         Ok(())
     }
 
     /// Processes a VAA originating from Sui.
-    /// This function dispatches to specific handlers based on the action type in the VAA payload.
     pub fn process_vaa_from_sui(
-        _ctx: Context<ProcessVaaFromSui>, // ctx is not used if we only error out
-        _vaa_hash: [u8; 32], // Used for wormhole_message PDA constraint
-        _vaa_payload_solana_stub_id: u64, // Added to match #[instruction] and client call expectation
-                                          // VAA payload is now deserialized on-chain from wormhole_message
+        ctx: Context<ProcessVaaFromSui>,
+        vaa_hash: [u8; 32],
+        vaa_payload_solana_stub_id: u64,
     ) -> Result<()> {
-        // This function is deprecated and will always return an error.
-        // The line `let acc_data = ctx.accounts.wormhole_message.try_borrow_data()?;` was removed.
-        // Example: if PostedVaaData has a known structure where payload is at a certain offset.
-        // This is highly dependent on how `wormhole_message` account data is structured by Wormhole.
-        // Let's assume `extract_vaa_payload` is a utility function you'd write or get from SDK.
-        // const VAA_PAYLOAD_OFFSET: usize = 51; // Example offset, LIKELY INCORRECT, placeholder
-        // let vaa_payload_bytes = &acc_data[VAA_PAYLOAD_OFFSET..];
-
-        // A more robust way is to use the wormhole_sdk::vaa::Vaa structure if available
-        // and the wormhole_message account is of a type that allows loading it.
-        // For now, we'll simulate by expecting the relayer to pass the payload,
-        // or by defining a simpler on-chain deserialization.
-        // Let's assume the first byte of the VAA payload is the action_type.
-        // THIS IS A SIMPLIFICATION. A full VAA parsing is complex.
-        // We will proceed by defining specific instructions for each VAA action type for clarity.
-
-        // Re-design: Create separate instructions for each VAA action from Sui for clarity.
-        // This `process_vaa_from_sui` will be removed in favor of specific handlers.
-        // For now, this function will error, prompting use of specific handlers.
-        Err(PactDaError::GenericVaaHandlerDeprecated.into())
+        // Get the VAA data from the wormhole_message account
+        let vaa_data = ctx.accounts.wormhole_message.try_borrow_data()?;
+        
+        // Parse the VAA
+        let vaa = Vaa::parse(vaa_data)?;
+        
+        // Verify the VAA is from Sui chain
+        require!(
+            vaa.emitter_chain == TARGET_CHAIN_SUI,
+            PactDaError::InvalidEmitterChain
+        );
+        
+        // Verify the VAA is for this program
+        require!(
+            vaa.emitter_address == ctx.accounts.wormhole_bridge.key(),
+            PactDaError::InvalidEmitterAddress
+        );
+        
+        // Parse the payload based on action type
+        let action_type = vaa.payload[0];
+        match action_type {
+            solana_actions::INITIALIZE_STUB => {
+                let payload = InitializeStubFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                initialize_stub_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.sui_contract_identifier,
+                    payload.title,
+                    payload.description,
+                    payload.pactda_url,
+                    payload.party_b_solana_address,
+                    payload.terms_reference,
+                    payload.contract_start_date,
+                    payload.contract_deadline_date,
+                    payload.metadata,
+                    payload.contract_type,
+                )
+            }
+            solana_actions::UPDATE_DISPLAY_STATUS => {
+                let payload = UpdateDisplayStatusFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                update_stub_status_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.new_display_status,
+                )
+            }
+            solana_actions::UPDATE_STUB_DETAILS => {
+                let payload = UpdateStubDetailsFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                update_stub_details_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.new_title,
+                    payload.new_terms_reference,
+                    payload.new_contract_start_date,
+                    payload.new_contract_deadline_date,
+                    payload.new_metadata,
+                    payload.new_contract_type,
+                )
+            }
+            solana_actions::APPROVE_MILESTONE => {
+                let payload = ApproveMilestoneFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                approve_milestone_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.milestone_id,
+                )
+            }
+            solana_actions::DISPUTE => {
+                let payload = DisputeFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                dispute_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.dispute_reason,
+                )
+            }
+            solana_actions::VERIFY_VCNFT => {
+                let payload = VerifyVCNFTFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                verify_vcnft_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.vcnft_id,
+                )
+            }
+            solana_actions::CONTRACT_STATUS_UPDATE => {
+                let payload = ContractStatusUpdateFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                contract_status_update_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.new_status,
+                )
+            }
+            solana_actions::ESCROW_STATUS_UPDATE => {
+                let payload = EscrowStatusUpdateFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                escrow_status_update_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.new_status,
+                )
+            }
+            solana_actions::SIGN_CONTRACT_PARTY_B => {
+                let payload = SignContractPartyBFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                sign_contract_party_b_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.party_b_solana_address,
+                )
+            }
+            solana_actions::SUBMIT_PROOF_PARTY_B => {
+                let payload = SubmitProofPartyBFromSuiPayload::try_from_slice(&vaa.payload[1..])?;
+                submit_proof_party_b_from_vaa(
+                    ctx.accounts.into(),
+                    vaa_hash,
+                    payload.target_solana_stub_id,
+                    payload.milestone_id,
+                    payload.proof_url,
+                    payload.proof_description,
+                )
+            }
+            _ => Err(PactDaError::InvalidActionType.into())
+        }
     }
 
     /// Initializes a PactDaSolStub based on a VAA from Sui.
@@ -239,6 +385,181 @@ pub mod pactda_sol {
         );
         Ok(())
     }
+
+    /// Approves a milestone based on a VAA from Sui
+    pub fn approve_milestone_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        milestone_id: u64,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!("Milestone {} approved from Sui", milestone_id);
+
+        msg!(
+            "Milestone {} approved for Solana Stub ID {} from Sui VAA",
+            milestone_id,
+            stub.solana_stub_id
+        );
+        Ok(())
+    }
+
+    /// Initiates a dispute based on a VAA from Sui
+    pub fn dispute_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        dispute_reason: String,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!("Disputed from Sui: {}", dispute_reason);
+
+        msg!(
+            "Dispute initiated for Solana Stub ID {} from Sui VAA: {}",
+            stub.solana_stub_id,
+            dispute_reason
+        );
+        Ok(())
+    }
+
+    /// Verifies a VCNFT based on a VAA from Sui
+    pub fn verify_vcnft_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        vcnft_id: String,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!("VCNFT {} verified from Sui", vcnft_id);
+
+        msg!(
+            "VCNFT {} verified for Solana Stub ID {} from Sui VAA",
+            vcnft_id,
+            stub.solana_stub_id
+        );
+        Ok(())
+    }
+
+    /// Updates contract status based on a VAA from Sui
+    pub fn contract_status_update_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        new_status: u8,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!("Contract status updated to {} from Sui", new_status);
+
+        msg!(
+            "Contract status updated to {} for Solana Stub ID {} from Sui VAA",
+            new_status,
+            stub.solana_stub_id
+        );
+        Ok(())
+    }
+
+    /// Updates escrow status based on a VAA from Sui
+    pub fn escrow_status_update_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        new_status: u8,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!("Escrow status updated to {} from Sui", new_status);
+
+        msg!(
+            "Escrow status updated to {} for Solana Stub ID {} from Sui VAA",
+            new_status,
+            stub.solana_stub_id
+        );
+        Ok(())
+    }
+
+    /// Signs contract as Party B based on a VAA from Sui
+    pub fn sign_contract_party_b_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        party_b_solana_address: Pubkey,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!("Signed by Party B {} from Sui", party_b_solana_address);
+
+        msg!(
+            "Contract signed by Party B {} for Solana Stub ID {} from Sui VAA",
+            party_b_solana_address,
+            stub.solana_stub_id
+        );
+        Ok(())
+    }
+
+    /// Submits proof for a milestone based on a VAA from Sui
+    pub fn submit_proof_party_b_from_vaa(
+        ctx: Context<ProcessVaaFromSui>,
+        _vaa_hash: [u8; 32],
+        target_solana_stub_id: u64,
+        milestone_id: u64,
+        proof_url: String,
+        proof_description: String,
+    ) -> Result<()> {
+        let stub = &mut ctx.accounts.pact_da_stub;
+        require!(
+            stub.solana_stub_id == target_solana_stub_id,
+            PactDaError::StubIdMismatch
+        );
+
+        // Update the stub's display status
+        stub.display_status = format!(
+            "Proof submitted for milestone {} from Sui: {}",
+            milestone_id,
+            proof_description
+        );
+
+        msg!(
+            "Proof submitted for milestone {} of Solana Stub ID {} from Sui VAA: {}",
+            milestone_id,
+            stub.solana_stub_id,
+            proof_description
+        );
+        Ok(())
+    }
 }
 
 // --- Accounts Structs ---
@@ -278,6 +599,10 @@ pub struct RequestActionOnSui<'info> {
     pub pact_da_stub: Account<'info, PactDaSolStub>,
     #[account(mut)]
     pub signer: Signer<'info>,
+    
+    /// CHECK: Wormhole bridge account, verified by address
+    #[account(address = WORMHOLE_BRIDGE_ADDRESS)]
+    pub wormhole_bridge: AccountInfo<'info>,
 }
 
 // Common accounts for VAA processing (payer and bridge)
@@ -535,6 +860,83 @@ pub struct SubmitProofSuiPayload {
 //     pub new_display_status: String,
 // }
 
+// Add new payload structs for VAA processing
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct InitializeStubFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub sui_contract_identifier: String,
+    pub title: String,
+    pub description: String,
+    pub pactda_url: String,
+    pub party_b_solana_address: Pubkey,
+    pub terms_reference: Option<String>,
+    pub contract_start_date: Option<u64>,
+    pub contract_deadline_date: Option<u64>,
+    pub metadata: Option<String>,
+    pub contract_type: Option<u8>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct UpdateDisplayStatusFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub new_display_status: String,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct UpdateStubDetailsFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub new_title: Option<String>,
+    pub new_terms_reference: Option<String>,
+    pub new_contract_start_date: Option<u64>,
+    pub new_contract_deadline_date: Option<u64>,
+    pub new_metadata: Option<String>,
+    pub new_contract_type: Option<u8>,
+}
+
+// Add new payload structs for VAA processing
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct ApproveMilestoneFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub milestone_id: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct DisputeFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub dispute_reason: String,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct VerifyVCNFTFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub vcnft_id: String,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct ContractStatusUpdateFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub new_status: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct EscrowStatusUpdateFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub new_status: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct SignContractPartyBFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub party_b_solana_address: Pubkey,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct SubmitProofPartyBFromSuiPayload {
+    pub target_solana_stub_id: u64,
+    pub milestone_id: u64,
+    pub proof_url: String,
+    pub proof_description: String,
+}
 
 // --- Errors ---
 #[error_code]
@@ -547,4 +949,18 @@ pub enum PactDaError {
     VaaTargetMismatch,
     #[msg("Generic VAA handler is deprecated. Use specific VAA handlers.")]
     GenericVaaHandlerDeprecated,
+    #[msg("Invalid emitter chain in VAA")]
+    InvalidEmitterChain,
+    #[msg("Invalid emitter address in VAA")]
+    InvalidEmitterAddress,
+    #[msg("Invalid action type in VAA")]
+    InvalidActionType,
+    #[msg("Invalid milestone ID")]
+    InvalidMilestoneId,
+    #[msg("Invalid VCNFT ID")]
+    InvalidVCNFTId,
+    #[msg("Invalid contract status")]
+    InvalidContractStatus,
+    #[msg("Invalid escrow status")]
+    InvalidEscrowStatus,
 }
