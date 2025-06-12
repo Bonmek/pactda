@@ -73,7 +73,6 @@ pub mod pactda_sol {
         target_sui_bridge_address_bytes: [u8; 32],
     ) -> Result<()> {
         let stub = &ctx.accounts.pact_da_stub;
-        require_keys_eq!(stub.initiator, ctx.accounts.signer.key(), PactDaError::Unauthorized);
 
         // The full payload for the event will include the sui_contract_identifier
         // so the relayer/Sui bridge knows which Sui contract this action is for.
