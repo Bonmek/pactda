@@ -1,0 +1,61 @@
+/**
+ * Custom utility classes for the improved contract form UI
+ */
+
+/* Hide scrollbar but allow scrolling */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* Internet Explorer and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, and Opera */
+}
+
+/* Contract form section styling */
+.contract-section {
+  transition: all 0.3s ease;
+}
+
+.contract-section:hover {
+  transform: translateY(-2px);
+}
+
+/* Enhanced form field styling */
+.form-field-glow:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+/* Pulse animation for important elements */
+@keyframes soft-pulse {
+  0% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.8;
+  }
+}
+
+.pulse-effect {
+  animation: soft-pulse 2s infinite;
+}
+
+/* Better visual hierarchy for form sections */
+.section-divider {
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(59, 130, 246, 0.3),
+    transparent
+  );
+  margin: 2rem 0;
+}
+
+/* Date picker popper fix */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}

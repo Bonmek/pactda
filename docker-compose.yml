@@ -1,0 +1,11 @@
+version: '3.9'
+
+services:
+  client:
+    build:
+      context: ./frontend
+    ports:
+      - "4173:4173"
+    env_file:
+      - ./frontend/.env.production
+

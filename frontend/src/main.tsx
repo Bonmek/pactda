@@ -1,9 +1,17 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './global.css'
+import './styles/global.css'
+import './styles/animations.css'
+import './styles/shared.css'
 
 import App from './App'
 import { Providers } from './providers'
+import { ThemeProvider } from './context/ThemeContext'
+import initializeServices from './service/ServiceInitializer'
+
+// Initialize services
+initializeServices()
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 
@@ -16,20 +24,24 @@ if (process.env.NODE_ENV === 'development') {
     }) // Run <App /> when Service Worker is ready to intercept requests.
     .then(() => {
       root.render(
-        <React.StrictMode>
-          <Providers>
-            <App />
-          </Providers>
-        </React.StrictMode>,
+        <ThemeProvider>
+          <React.StrictMode>
+            <Providers>
+              <App />
+            </Providers>
+          </React.StrictMode>
+        </ThemeProvider>,
       )
     })
   // Never setup MSW mock server in production
 } else if (process.env.NODE_ENV === 'production') {
   root.render(
-    <React.StrictMode>
-      <Providers>
-        <App />
-      </Providers>
-    </React.StrictMode>,
+    <ThemeProvider>
+      <React.StrictMode>
+        <Providers>
+          <App />
+        </Providers>
+      </React.StrictMode>
+    </ThemeProvider>,
   )
 }

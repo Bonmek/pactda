@@ -1,0 +1,159 @@
+/**
+ * Custom header animation effects for PactDA UI
+ * Enhanced hover and click interactions for improved user experience
+ */
+
+/* Text shadow effects for headers on hover */
+.text-shadow-blue {
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+.text-shadow-purple {
+  text-shadow: 0 0 8px rgba(124, 58, 237, 0.5);
+}
+
+.text-shadow-pink {
+  text-shadow: 0 0 8px rgba(236, 72, 153, 0.5);
+}
+
+/* Background size and position utilities for gradient animations */
+.bg-size-200 {
+  background-size: 200% 200%;
+}
+
+.bg-pos-0 {
+  background-position: 0% 50%;
+}
+
+.bg-pos-100 {
+  background-position: 100% 50%;
+}
+
+/* Interactive header styling */
+.header-hover {
+  cursor: pointer;
+  transition:
+    transform 0.3s ease,
+    text-shadow 0.3s ease,
+    background-position 0.6s ease;
+}
+
+.header-hover:hover {
+  transform: scale(1.03);
+  text-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
+  background-position: 100% 50%;
+}
+
+.header-hover:active {
+  transform: scale(0.98);
+}
+
+/* Special styling for main page headers */
+h1.text-5xl.md\:text-6xl,
+h1.text-4xl.md\:text-6xl {
+  transition:
+    transform 0.3s ease,
+    text-shadow 0.3s ease,
+    background-position 0.6s ease;
+}
+
+h1.text-5xl.md\:text-6xl:hover,
+h1.text-4xl.md\:text-6xl:hover {
+  text-shadow: 0 0 12px rgba(96, 165, 250, 0.6);
+}
+
+/* Multi-color gradient text animation */
+.gradient-text {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-size: 200% 200%;
+  background-position: 0% 50%;
+}
+
+.from-blue-to-purple {
+  background-image: linear-gradient(to right, #60a5fa, #a78bfa, #f472b6);
+}
+
+/* Add subtle bounce on hover for interactive elements */
+.hover-bounce {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hover-bounce:hover {
+  transform: translateY(-5px);
+}
+
+/* Scale effect on tap/click */
+.tap-scale:active {
+  transform: scale(0.96);
+  transition: transform 0.1s ease;
+}
+
+/* Futuristic Grid Patterns */
+.bg-grid-white {
+  --grid-size: 24px;
+  --grid-strength: 1;
+  background-image:
+    linear-gradient(
+      to right,
+      rgba(255, 255, 255, var(--grid-strength)) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, var(--grid-strength)) 1px,
+      transparent 1px
+    );
+  background-size: var(--grid-size) var(--grid-size);
+}
+
+.bg-grid-6 {
+  --grid-size: 6px;
+}
+
+.bg-grid-8 {
+  --grid-size: 8px;
+}
+
+.bg-grid-12 {
+  --grid-size: 12px;
+}
+
+/* Futuristic button style */
+.btn-futuristic {
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.btn-futuristic:before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(99, 102, 241, 0.3) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-futuristic:hover:before {
+  opacity: 1;
+}
+
+/* Wallet connection button */
+.wallet-btn {
+  position: relative;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.wallet-btn:hover {
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}

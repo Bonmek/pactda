@@ -1,0 +1,176 @@
+/**
+ * Custom cursor animations for PactDA UI
+ * Creates a futuristic cyberpunk-inspired cursor effect
+ */
+
+/* Hide the default cursor on desktop devices only, but ensure important UI elements
+   like buttons and inputs have cursor feedback for accessibility */
+@media (min-width: 768px) {
+  * {
+    cursor: none !important;
+  }
+
+  /* If cursor tracking fails, ensure these elements still show correct cursor */
+  a:hover,
+  button:hover,
+  [role='button']:hover,
+  input[type='submit']:hover,
+  input[type='button']:hover,
+  input[type='reset']:hover {
+    cursor: pointer !important;
+  }
+
+  /* Ensure text selection works properly */
+  textarea,
+  input[type='text'],
+  input[type='password'],
+  input[type='email'],
+  input[type='number'],
+  p,
+  span,
+  h1,
+  h2,
+  h3 {
+    cursor: text !important;
+  }
+}
+
+/* Custom cursor elements */
+#cursor-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  display: none; /* Hidden by default for mobile */
+}
+
+/* Show cursor only on desktop */
+@media (min-width: 768px) {
+  #cursor-container {
+    display: block;
+  }
+}
+
+#custom-cursor {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  background-image: url('/cursor-default.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+  transform: translate(-50%, -50%);
+  transition:
+    transform 0.05s ease,
+    width 0.2s ease,
+    height 0.2s ease;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.5));
+}
+
+/* Cursor dot that follows more tightly */
+#cursor-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #60a5fa;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+  box-shadow: 0 0 12px rgba(96, 165, 250, 0.8);
+  will-change: transform;
+}
+
+/* Trails effect for cursor */
+.cursor-trail {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(96, 165, 250, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
+  animation: trail-fade 0.8s forwards ease-out;
+}
+
+@keyframes trail-fade {
+  0% {
+    opacity: 0.8;
+    width: 8px;
+    height: 8px;
+  }
+  100% {
+    opacity: 0;
+    width: 3px;
+    height: 3px;
+  }
+}
+
+/* Cursor states */
+.custom-cursor-hover {
+  width: 40px !important;
+  height: 40px !important;
+  background-image: url('/cursor-pointer.svg') !important;
+  transform: translate(-50%, -50%) !important;
+  filter: drop-shadow(0 0 12px rgba(96, 165, 250, 0.8)) !important;
+}
+
+/* Cursor click animation */
+.custom-cursor-click {
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.9)) !important;
+  transition: all 0.15s ease-out !important;
+}
+
+/* Pulse animation for hover effect */
+@keyframes cursor-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.5));
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    filter: drop-shadow(0 0 15px rgba(96, 165, 250, 0.9));
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.5));
+  }
+}
+
+/* Initial cursor animation to help find it */
+#custom-cursor {
+  animation: cursor-pulse 2s ease-in-out 2;
+}
+
+/* Specific element interactions - only on desktop */
+@media (min-width: 768px) {
+  a,
+  button,
+  .cursor-pointer,
+  [role='button'],
+  input[type='submit'],
+  input[type='button'],
+  input[type='reset'] {
+    cursor: none !important;
+  }
+}
+
+/* Make sure clickable elements have hover state indication */
+.header-hover:hover ~ #cursor-container #custom-cursor,
+a:hover ~ #cursor-container #custom-cursor,
+button:hover ~ #cursor-container #custom-cursor,
+.cursor-pointer:hover ~ #cursor-container #custom-cursor,
+[role='button']:hover ~ #cursor-container #custom-cursor,
+input[type='submit']:hover ~ #cursor-container #custom-cursor,
+input[type='button']:hover ~ #cursor-container #custom-cursor,
+input[type='reset']:hover ~ #cursor-container #custom-cursor {
+  width: 36px !important;
+  height: 36px !important;
+  background-image: url('/cursor-pointer.svg') !important;
+}
